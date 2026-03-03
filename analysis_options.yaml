@@ -1,0 +1,20 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - lib/src/log_shield/dio_shield_interceptor.dart
+    - lib/dio_shield.dart
+    - lib/src/string_shield/generator/**
+    - '**/*.g.dart'
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    avoid_print: false
+    public_member_api_docs: true
+    sort_constructors_first: true
+    prefer_final_locals: true
+    unawaited_futures: true
+    cancel_subscriptions: true
+    close_sinks: true

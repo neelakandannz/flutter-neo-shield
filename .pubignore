@@ -1,0 +1,7 @@
+build/
+.dart_tool/
+.github/
+# Dio integration requires the `dio` package which is not a direct dependency.
+# Available on GitHub: https://github.com/neelakandan/flutter_neo_shield
+lib/src/log_shield/dio_shield_interceptor.dart
+lib/dio_shield.dart
