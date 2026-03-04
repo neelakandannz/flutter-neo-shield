@@ -56,3 +56,6 @@ export 'src/rasp/security_result.dart';
 
 // Main
 export 'src/flutter_neo_shield.dart';
+
+// Desktop plugin stubs (required for dart_plugin_registrant)
+export 'flutter_neo_shield_stub.dart';
