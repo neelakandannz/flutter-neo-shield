@@ -1,3 +1,11 @@
+## 0.3.0
+
+* Added full platform support for Web, macOS, Windows, and Linux.
+* All features (Log Shield, Clipboard Shield, Memory Shield, String Shield) now work on all six Flutter platforms.
+* Memory Shield uses native wipe on Android/iOS and Dart-side byte overwriting on other platforms.
+* Added `flutter_web_plugins` SDK dependency for web plugin registration.
+* No breaking changes — existing Android/iOS code is fully unaffected.
+
 ## 0.2.1
 
 * Fixed pub.dev static analysis warnings.
