@@ -274,6 +274,9 @@ if (!report.isSafe) {
   if (report.hookDetected) print('Hooking framework (Substrate/Xposed) detected!');
   if (report.integrityTampered) print('App binary was tampered/sideloaded!');
 }
+    // Exit the app
+    _terminateApp();
+
 ```
 
 You can also run independent checks before sensitive actions (like processing a payment):
