@@ -305,6 +305,15 @@ It uses OS-level APIs to make your app's content **invisible to all capture meth
 - **Android:** Sets `FLAG_SECURE` on the Activity window. The OS itself renders a **black screen** for any capture — screenshots, screen recording, Chromecast, `adb screencap`, and the app switcher thumbnail. This works on all Android versions.
 - **iOS:** Uses a `UITextField` with `isSecureTextEntry = true` as a rendering layer. The OS treats content in this layer as DRM-protected and **blanks it during capture**. This is the same technique used by banking apps. Additionally, a blur overlay is shown in the app switcher.
 
+---
+
+### See Screen Shield in Action
+
+<video src="video/flutter_neo_screen-shield.mp4" width="100%" height="auto" controls loop muted autoplay></video>
+
+---
+
+
 **Simplest usage — protect the entire app:**
 
 ```dart
