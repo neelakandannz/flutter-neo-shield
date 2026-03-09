@@ -648,14 +648,17 @@ See the [Dio integration file](https://github.com/neelakandanz/flutter-neo-shiel
 
 ---
 
-## Contributing
+## How to contribute
 
-1. Fork the repository
-2. Create a feature branch
-3. Write tests for your changes
-4. Ensure `dart analyze` passes with zero issues
-5. Ensure `dart format` produces no changes
-6. Submit a pull request
+Want to contribute to the project? We will be proud to highlight you as one of our collaborators. Here are some points where you can contribute and make flutter_neo_shield (and Flutter) even better.
+
+- Helping to translate the readme into other languages.
+- Adding documentation to the readme (a lot of flutter_neo_shield's functions haven't been documented yet).
+- Write articles or make videos teaching how to use flutter_neo_shield (they will be inserted in the Readme and in the future in our Wiki).
+- Offering PRs for code/tests.
+- Including new functions.
+
+Any contribution is welcome!
 
 ---
 
@@ -663,4 +666,4 @@ See the [Dio integration file](https://github.com/neelakandanz/flutter-neo-shiel
 
 MIT License. See [LICENSE](LICENSE) for details.
 
-Copyright (c) 2024 Neelakandan
+Copyright (c) 2024-2026 Neelakandan
