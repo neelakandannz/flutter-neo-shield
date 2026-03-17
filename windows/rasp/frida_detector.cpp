@@ -7,29 +7,33 @@
 #include <tlhelp32.h>
 #include <string>
 #include <algorithm>
+#include "../shield_codec.h"
 
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "psapi.lib")
 
 namespace flutter_neo_shield {
 
+// "frida" encoded
+static const std::string kFrida = ShieldCodec::Decode({40, 33, 33, 40, 37});
+
 bool FridaDetector::Check() {
   return CheckNamedPipes() || CheckPorts() || CheckProcesses() || CheckLoadedModules();
 }
 
-/// Check for Frida named pipes.
-///
-/// Frida-server creates named pipes for IPC with frida-agent.
 bool FridaDetector::CheckNamedPipes() {
   WIN32_FIND_DATAW findData;
   HANDLE hFind = ::FindFirstFileW(L"\\\\.\\pipe\\*", &findData);
   if (hFind == INVALID_HANDLE_VALUE) return false;
 
+  // Convert search string to wide
+  std::wstring wFrida(kFrida.begin(), kFrida.end());
+
   bool found = false;
   do {
     std::wstring pipeName(findData.cFileName);
     std::transform(pipeName.begin(), pipeName.end(), pipeName.begin(), ::towlower);
-    if (pipeName.find(L"frida") != std::wstring::npos) {
+    if (pipeName.find(wFrida) != std::wstring::npos) {
       found = true;
       break;
     }
@@ -39,7 +43,6 @@ bool FridaDetector::CheckNamedPipes() {
   return found;
 }
 
-/// Scan Frida default ports on localhost.
 bool FridaDetector::CheckPorts() {
   WSADATA wsaData;
   if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return false;
@@ -51,7 +54,6 @@ bool FridaDetector::CheckPorts() {
     SOCKET sock = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) continue;
 
-    // Set connection timeout to 1 second
     DWORD timeout = 1000;
     ::setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (const char *)&timeout, sizeof(timeout));
 
@@ -72,10 +74,11 @@ bool FridaDetector::CheckPorts() {
   return found;
 }
 
-/// Check running processes for frida-server.
 bool FridaDetector::CheckProcesses() {
   HANDLE snapshot = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
   if (snapshot == INVALID_HANDLE_VALUE) return false;
+
+  std::wstring wFrida(kFrida.begin(), kFrida.end());
 
   PROCESSENTRY32W pe = {};
   pe.dwSize = sizeof(PROCESSENTRY32W);
@@ -85,7 +88,7 @@ bool FridaDetector::CheckProcesses() {
     do {
       std::wstring name(pe.szExeFile);
       std::transform(name.begin(), name.end(), name.begin(), ::towlower);
-      if (name.find(L"frida") != std::wstring::npos) {
+      if (name.find(wFrida) != std::wstring::npos) {
         found = true;
         break;
       }
@@ -96,14 +99,15 @@ bool FridaDetector::CheckProcesses() {
   return found;
 }
 
-/// Scan loaded DLLs in current process for frida-agent.
 bool FridaDetector::CheckLoadedModules() {
   HMODULE modules[1024];
   DWORD needed;
 
   if (!::EnumProcessModules(::GetCurrentProcess(), modules, sizeof(modules), &needed)) {
-    return false;
+    return true;
   }
+
+  std::wstring wFrida(kFrida.begin(), kFrida.end());
 
   DWORD count = needed / sizeof(HMODULE);
   for (DWORD i = 0; i < count; i++) {
@@ -111,7 +115,7 @@ bool FridaDetector::CheckLoadedModules() {
     if (::GetModuleFileNameW(modules[i], name, MAX_PATH)) {
       std::wstring nameStr(name);
       std::transform(nameStr.begin(), nameStr.end(), nameStr.begin(), ::towlower);
-      if (nameStr.find(L"frida") != std::wstring::npos) {
+      if (nameStr.find(wFrida) != std::wstring::npos) {
         return true;
       }
     }

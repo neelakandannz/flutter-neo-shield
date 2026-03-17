@@ -5,20 +5,34 @@
 #include <iphlpapi.h>
 #include <string>
 #include <algorithm>
+#include "../shield_codec.h"
 
 #pragma comment(lib, "winhttp.lib")
 #pragma comment(lib, "iphlpapi.lib")
 
 namespace flutter_neo_shield {
 
+// VPN adapter description indicators (encoded)
+static const std::string kVpnIndicators[] = {
+  ShieldCodec::Decode({58,50,56}),                                    // tap
+  ShieldCodec::Decode({58,38,38}),                                    // tun
+  ShieldCodec::Decode({56,35,38}),                                    // vpn
+  ShieldCodec::Decode({57,58,58,41,35,59,50,58,40}),                 // wireguard
+  ShieldCodec::Decode({57,58,38,56,49,32}),                           // wintun
+  ShieldCodec::Decode({32,60,58,40,40,55,61,48}),                    // nordlynx
+  ShieldCodec::Decode({62,33,39,56,43,32}),                           // proton
+  ShieldCodec::Decode({35,38,36,32,50,47,55}),                       // mullvad
+  ShieldCodec::Decode({33,35,45,34,50,62,61}),                       // openvpn
+  ShieldCodec::Decode({45,58,59,47,43,110,50,38,53,39,33,61,38,41,39,58}), // cisco anyconnect
+  ShieldCodec::Decode({40,60,58,56,45,32,54,60}),                    // fortinet
+  ShieldCodec::Decode({62,50,36,35,100,47,63,60,35}),                // palo alto
+};
+static const size_t kVpnCount = sizeof(kVpnIndicators) / sizeof(kVpnIndicators[0]);
+
 bool NetworkThreatDetector::CheckSimple() {
   return CheckProxy() || CheckVpn() || CheckProxyEnvironment();
 }
 
-/// Check system proxy settings via WinHTTP.
-///
-/// Detects HTTP/HTTPS proxies configured at the system level
-/// (Burp Suite, Charles Proxy, mitmproxy).
 bool NetworkThreatDetector::CheckProxy() {
   WINHTTP_CURRENT_USER_IE_PROXY_CONFIG proxyConfig = {};
 
@@ -29,7 +43,6 @@ bool NetworkThreatDetector::CheckProxy() {
       has_proxy = true;
     }
 
-    // Clean up
     if (proxyConfig.lpszAutoConfigUrl) ::GlobalFree(proxyConfig.lpszAutoConfigUrl);
     if (proxyConfig.lpszProxy) ::GlobalFree(proxyConfig.lpszProxy);
     if (proxyConfig.lpszProxyBypass) ::GlobalFree(proxyConfig.lpszProxyBypass);
@@ -40,10 +53,6 @@ bool NetworkThreatDetector::CheckProxy() {
   return false;
 }
 
-/// Detect VPN connections via network adapter enumeration.
-///
-/// VPN clients install TAP/TUN virtual adapters. We check adapter
-/// descriptions for known VPN indicators.
 bool NetworkThreatDetector::CheckVpn() {
   ULONG bufferSize = 0;
   ::GetAdaptersInfo(NULL, &bufferSize);
@@ -56,19 +65,13 @@ bool NetworkThreatDetector::CheckVpn() {
     return false;
   }
 
-  const char *vpn_indicators[] = {
-    "tap", "tun", "vpn", "wireguard", "wintun",
-    "nordlynx", "proton", "mullvad", "openvpn",
-    "cisco anyconnect", "fortinet", "palo alto",
-  };
-
   PIP_ADAPTER_INFO adapter = adapterInfo;
   while (adapter) {
     std::string desc(adapter->Description);
     std::transform(desc.begin(), desc.end(), desc.begin(), ::tolower);
 
-    for (const auto &indicator : vpn_indicators) {
-      if (desc.find(indicator) != std::string::npos) {
+    for (size_t i = 0; i < kVpnCount; i++) {
+      if (desc.find(kVpnIndicators[i]) != std::string::npos) {
         return true;
       }
     }
@@ -79,7 +82,6 @@ bool NetworkThreatDetector::CheckVpn() {
   return false;
 }
 
-/// Check for proxy environment variables.
 bool NetworkThreatDetector::CheckProxyEnvironment() {
   const wchar_t *proxy_vars[] = {
     L"http_proxy", L"https_proxy", L"HTTP_PROXY",

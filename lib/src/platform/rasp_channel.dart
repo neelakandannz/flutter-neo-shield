@@ -1,13 +1,15 @@
 import 'package:flutter/services.dart';
 import 'dart:developer' as developer;
 
+import 'shield_codec.dart';
+
 /// Handles communication between Flutter and Native layer for RASP checks.
 ///
 /// Uses a fail-closed design: if the native platform is unavailable or
 /// throws an error, checks report the threat as detected (safe default).
 class RaspChannel {
-  static const MethodChannel _channel =
-      MethodChannel('com.neelakandan.flutter_neo_shield/rasp');
+  static final MethodChannel _channel =
+      MethodChannel(ShieldCodec.d(ShieldCodec.chRasp));
 
   static bool _failClosed = true;
   static bool _configured = false;

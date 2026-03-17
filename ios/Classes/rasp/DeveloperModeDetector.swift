@@ -1,22 +1,27 @@
 import Foundation
 
-/// Detects whether Developer Mode is enabled on the device.
-///
-/// **iOS 16+:** Apple introduced a user-facing "Developer Mode" toggle
-/// (Settings → Privacy & Security → Developer Mode). When enabled it
-/// allows sideloading of apps and attachment of debuggers.
-///
-/// Detection heuristics:
-/// 1. Check for the `/Developer` mount path (developer disk image).
-/// 2. Check for developer-related files and directories.
-/// 3. On iOS 16+, check through the Security framework if available.
-///
-/// **iOS < 16:** Developer Mode did not exist as a user-facing setting.
-/// Returns `false` on these versions.
 class DeveloperModeDetector: NSObject {
 
+    private static let _k: [Int] = [0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22]
+    private static func d(_ e: [Int]) -> String {
+        String(e.enumerated().map { i, v in Character(UnicodeScalar(v ^ _k[i % _k.count])!) })
+    }
+
+    // Developer paths (encoded)
+    private static let developerPaths: [String] = [
+        d([97,23,45,58,33,34,60,56,41,54]),
+        d([97,31,33,46,54,47,33,49,99,0,43,37,45,32,43,62,54,58]),
+        d([97,38,59,62,107,34,58,42,99,40,39,49,5,35,38,39,63,45,11,33,61,39,41,32,48,96,55,49,32,45,44]),
+    ]
+
+    private static let signaturePaths: [String] = [
+        d([97,23,45,58,33,34,60,56,41,54,97,31,33,46,54,47,33,49]),
+        d([97,23,45,58,33,34,60,56,41,54,97,38,59,62]),
+    ]
+
+    private static let dtddiPath = d([97,23,45,58,33,34,60,56,41,54,97,31,33,46,54,47,33,49,99,20,60,58,62,45,48,43,21,58,45,41,43,36,39,62,47,61,124,12,24,0,10,26,27,57,52,62,60,58,56,106,40,33,41,33,33,57,60,58,39,107,10,7,12,8,13,29,38,56,60,43,60,39])
+
     static func check() -> Bool {
-        // On iOS < 16, Developer Mode toggle does not exist.
         if #available(iOS 16.0, *) {
             return checkDeveloperModeEnabled()
         }
@@ -25,27 +30,12 @@ class DeveloperModeDetector: NSObject {
 
     @available(iOS 16.0, *)
     private static func checkDeveloperModeEnabled() -> Bool {
-        // Heuristic 1: Check for /Developer mount path
-        // When a device has Developer Mode enabled AND is paired with Xcode,
-        // a Developer disk image may be mounted.
-        let developerPaths = [
-            "/Developer",
-            "/Library/Developer",
-            "/usr/lib/libMobileGestalt.dylib"
-        ]
-
         let fileManager = FileManager.default
         for path in developerPaths {
             if fileManager.fileExists(atPath: path) {
                 return true
             }
         }
-
-        // Heuristic 2: Check for DeveloperDiskImage signature files
-        let signaturePaths = [
-            "/Developer/Library",
-            "/Developer/usr"
-        ]
 
         for path in signaturePaths {
             var isDir: ObjCBool = false
@@ -54,10 +44,7 @@ class DeveloperModeDetector: NSObject {
             }
         }
 
-        // Heuristic 3: Check if we can call developer-specific APIs
-        // The presence of certain developer frameworks loaded at runtime
-        // indicates Developer Mode is enabled.
-        if let _ = dlopen("/Developer/Library/PrivateFrameworks/DTDDISupport.framework/DTDDISupport", RTLD_LAZY) {
+        if let _ = dlopen(dtddiPath, RTLD_LAZY) {
             return true
         }
 

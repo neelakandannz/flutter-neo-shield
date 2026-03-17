@@ -1,6 +1,6 @@
 name: flutter_neo_shield
 description: Client-side PII protection toolkit for Flutter. Secures sensitive data from logs and clipboard, protects memory, and obfuscates strings in binaries.
-version: 1.9.0
+version: 1.10.0
 homepage: https://github.com/neelakandanz/flutter-neo-shield
 repository: https://github.com/neelakandanz/flutter-neo-shield
 issue_tracker: https://github.com/neelakandanz/flutter-neo-shield/issues
@@ -12,7 +12,7 @@ topics:
   - obfuscation
 
 environment:
-  sdk: '>=3.6.0 <4.0.0'
+  sdk: '>=3.4.0 <4.0.0'
   flutter: '>=3.19.0'
 
 dependencies:

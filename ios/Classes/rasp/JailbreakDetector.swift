@@ -2,40 +2,72 @@ import Foundation
 import UIKit
 
 public class JailbreakDetector {
+
+    // XOR key derived from arithmetic — never appears as a literal
+    private static let _k: [Int] = [0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22]
+    private static func d(_ e: [Int]) -> String {
+        String(e.enumerated().map { i, v in Character(UnicodeScalar(v ^ _k[i % _k.count])!) })
+    }
+
+    // Jailbreak file paths (encoded at class-init time)
+    private static let jbPaths: [String] = [
+        d([97,18,56,60,40,39,48,41,56,45,33,61,59,99,7,55,55,33,45,106,47,35,56]),
+        d([97,18,56,60,40,39,48,41,56,45,33,61,59,99,23,39,63,45,35,106,47,35,56]),
+        d([97,18,56,60,40,39,48,41,56,45,33,61,59,99,30,43,49,58,45,106,47,35,56]),
+        d([97,18,56,60,40,39,48,41,56,45,33,61,59,99,23,59,49,59,56,45,58,38,60,41,106,47,35,56]),
+        d([97,31,33,46,54,47,33,49,99,9,33,49,33,32,33,29,38,42,63,48,60,50,60,41,107,3,60,42,37,40,43,0,61,46,55,58,33,41,56,33,96,55,49,32,45,44]),
+        d([97,31,33,46,54,47,33,49,99,9,33,49,33,32,33,29,38,42,63,48,60,50,60,41,107,10,42,38,45,41,39,48,4,37,38,60,50,58,37,33,61]),
+        d([97,49,33,34,107,44,50,59,36]),
+        d([97,38,59,62,107,61,49,33,34,107,61,32,32,40]),
+        d([97,38,59,62,107,44,58,38,99,55,61,59]),
+        d([97,38,59,62,107,44,58,38,99,55,61,59,44]),
+        d([97,38,59,62,107,34,58,42,41,60,43,48,103,63,34,58,35,101,63,33,60,37,45,62]),
+        d([97,38,59,62,107,34,58,42,41,60,43,48,103,47,61,42,58,41]),
+        d([97,54,60,47,107,47,35,60]),
+        d([97,54,60,47,107,47,35,60,99,55,33,38,58,47,33,61,125,36,37,55,58,125,44]),
+        d([97,35,58,37,50,47,39,45,99,50,47,33,103,32,45,44,124,41,60,48,97]),
+        d([97,35,58,37,50,47,39,45,99,50,47,33,103,32,45,44,124,43,53,32,39,50]),
+        d([97,35,58,37,50,47,39,45,99,50,47,33,103,63,48,47,32,32]),
+        d([97,35,58,37,50,47,39,45,99,50,47,33,103,33,43,44,58,36,41,107,2,58,42,62,37,60,42,103,31,6,29,54,60,56,45,32,52,59,99,16,38,54,37,41,55]),
+        d([97,37,41,62,107,45,50,43,36,33,97,50,56,56]),
+        d([97,37,41,62,107,34,58,42,99,32,62,56,47]),
+        d([97,37,41,62,107,34,60,47,99,55,55,32,36,35,35]),
+        d([97,37,41,62,107,58,62,56,99,39,55,55,33,45,106,34,60,47]),
+        d([97,35,58,37,50,47,39,45,99,50,47,33,103,33,43,44,58,36,41,8,39,49,58,45,54,55,124,27,14,23,43,39,60,37,42,41,32,28,36,33,35,54,59]),
+        d([97,0,49,63,48,43,62,103,0,45,44,33,41,62,61,97,31,41,57,42,45,59,12,45,33,35,60,38,63,107,45,60,37,98,55,47,38,58,37,47,96,16,49,40,45,47,125,27,56,37,60,39,61,60,106,62,63,33,63,48]),
+        d([97,38,59,62,107,34,58,42,99,40,39,49,34,45,45,34,49,58,41,37,37,125,44,53,40,39,49]),
+        d([97,38,59,62,107,61,59,41,62,33,97,57,41,37,40,44,33,45,45,47,97,58,38,38,33,45,39,37,41,106,62,63,33,63,48]),
+        d([97,35,58,37,50,47,39,45,99,50,47,33,103,47,44,43,48,35,62,37,127,61,102,40,41,41]),
+        d([97,35,58,37,50,47,39,45,99,50,47,33,103,46,45,32,35,41,47,47]),
+    ]
+
+    // Sandbox write test paths (encoded)
+    private static let sandboxTestPath = d([97,35,58,37,50,47,39,45,99,46,47,58,36,46,54,43,50,35,98,48,54,39])
+    private static let sandboxTestPath2 = d([97,35,58,37,50,47,39,45,99,46,44,12,60,41,55,58])
+
+    // URL schemes (encoded)
+    private static let jbSchemes: [String] = [
+        d([45,42,44,37,37,116,124,103]),
+        d([61,58,36,41,43,116,124,103]),
+        d([52,49,58,45,126,97,124]),
+        d([59,61,44,41,39,39,62,61,63,126,97,124]),
+        d([40,58,36,54,37,116,124,103]),
+    ]
+
+    // Symlink paths (encoded)
+    private static let jbSymlinks: [String] = [
+        d([97,18,56,60,40,39,48,41,56,45,33,61,59]),
+        d([97,37,41,62,107,61,39,41,63,44,97,31,33,46,54,47,33,49,99,22,39,61,47,56,43,32,54,59]),
+        d([97,37,41,62,107,61,39,41,63,44,97,31,33,46,54,47,33,49,99,19,47,63,36,60,37,62,54,58]),
+        d([97,37,41,62,107,61,39,41,63,44,97,38,59,62,107,39,61,43,32,49,42,54]),
+        d([97,37,41,62,107,61,39,41,63,44,97,38,59,62,107,34,58,42,41,60,43,48]),
+        d([97,37,41,62,107,61,39,41,63,44,97,38,59,62,107,61,59,41,62,33]),
+        d([97,37,41,62,107,61,39,41,63,44,97,38,59,62,107,47,33,37,97,37,62,35,36,41,105,42,50,58,59,45,32,106]),
+    ]
+
     public static func check() -> Bool {
         // 1. Check for known jailbreak files
-        let paths = [
-            "/Applications/Cydia.app",
-            "/Applications/Sileo.app",
-            "/Applications/Zebra.app",
-            "/Applications/Substitute.app",
-            "/Library/MobileSubstrate/MobileSubstrate.dylib",
-            "/Library/MobileSubstrate/DynamicLibraries",
-            "/bin/bash",
-            "/usr/sbin/sshd",
-            "/usr/bin/ssh",
-            "/usr/bin/sshd",
-            "/usr/libexec/sftp-server",
-            "/usr/libexec/cydia",
-            "/etc/apt",
-            "/etc/apt/sources.list.d",
-            "/private/var/lib/apt/",
-            "/private/var/lib/cydia",
-            "/private/var/stash",
-            "/private/var/mobile/Library/SBSettings/Themes",
-            "/var/cache/apt",
-            "/var/lib/dpkg",
-            "/var/log/syslog",
-            "/var/tmp/cydia.log",
-            "/private/var/mobileLibrary/SBSettingsThemes",
-            "/System/Library/LaunchDaemons/com.saurik.Cydia.Startup.plist",
-            "/usr/lib/libjailbreak.dylib",
-            "/usr/share/jailbreak/injectme.plist",
-            "/private/var/checkra1n.dmg",
-            "/private/var/binpack",
-        ]
-
-        for path in paths {
+        for path in jbPaths {
             if FileManager.default.fileExists(atPath: path) {
                 return true
             }
@@ -44,21 +76,16 @@ public class JailbreakDetector {
         // 2. Check sandbox violation capability
         let stringToWrite = "Jailbreak Test"
         do {
-            try stringToWrite.write(toFile: "/private/jailbreak.txt", atomically: true, encoding: .utf8)
-            // If we can write outside sandbox, device is jailbroken
-            try? FileManager.default.removeItem(atPath: "/private/jailbreak.txt")
+            try stringToWrite.write(toFile: sandboxTestPath, atomically: true, encoding: .utf8)
+            try? FileManager.default.removeItem(atPath: sandboxTestPath)
             return true
         } catch {
             // Write failed, which is expected on non-jailbroken
         }
 
         // 3. Check if Cydia or Sileo URL schemes are available
-        // UIApplication.shared is only available on the main thread;
-        // wrap in a safe check to avoid crashes from background calls.
-        let schemes = ["cydia://", "sileo://", "zbra://", "undecimus://", "filza://"]
-        for scheme in schemes {
+        for scheme in jbSchemes {
             if let url = URL(string: scheme) {
-                // canOpenURL must be called on main thread
                 if Thread.isMainThread {
                     if UIApplication.shared.canOpenURL(url) {
                         return true
@@ -68,8 +95,7 @@ public class JailbreakDetector {
         }
 
         // 4. Check for suspicious symbolic links
-        let symlinks = ["/Applications", "/var/stash/Library/Ringtones", "/var/stash/Library/Wallpaper", "/var/stash/usr/include", "/var/stash/usr/libexec", "/var/stash/usr/share", "/var/stash/usr/arm-apple-darwin9"]
-        for link in symlinks {
+        for link in jbSymlinks {
             var s = stat()
             if lstat(link, &s) == 0 {
                 if (s.st_mode & S_IFLNK) == S_IFLNK {
@@ -79,10 +105,10 @@ public class JailbreakDetector {
         }
 
         // 5. Check if we can open a writable handle outside the sandbox
-        let fd = open("/private/jb_test", O_WRONLY | O_CREAT | O_TRUNC, 0o644)
+        let fd = open(sandboxTestPath2, O_WRONLY | O_CREAT | O_TRUNC, 0o644)
         if fd != -1 {
             close(fd)
-            unlink("/private/jb_test")
+            unlink(sandboxTestPath2)
             return true
         }
 

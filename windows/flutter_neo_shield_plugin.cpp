@@ -24,6 +24,7 @@
 #include "rasp/network_threat_detector.h"
 #include "screen/screen_protector.h"
 #include "screen/screen_recording_detector.h"
+#include "shield_codec.h"
 
 namespace flutter_neo_shield {
 
@@ -55,19 +56,19 @@ void FlutterNeoShieldPlugin::RegisterWithRegistrar(
   auto memory_channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           registrar->messenger(),
-          "com.neelakandan.flutter_neo_shield/memory",
+          ShieldCodec::Decode(ShieldCodec::ChannelMemory()),
           &flutter::StandardMethodCodec::GetInstance());
 
   auto rasp_channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           registrar->messenger(),
-          "com.neelakandan.flutter_neo_shield/rasp",
+          ShieldCodec::Decode(ShieldCodec::ChannelRasp()),
           &flutter::StandardMethodCodec::GetInstance());
 
   auto screen_channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           registrar->messenger(),
-          "com.neelakandan.flutter_neo_shield/screen",
+          ShieldCodec::Decode(ShieldCodec::ChannelScreen()),
           &flutter::StandardMethodCodec::GetInstance());
 
   auto plugin = std::make_unique<FlutterNeoShieldPlugin>(registrar);
@@ -112,7 +113,7 @@ void FlutterNeoShieldPlugin::HandleMethodCall(
   const auto &method = method_call.method_name();
 
   // Memory Shield
-  if (method == "allocateSecure") {
+  if (method == ShieldCodec::Decode(ShieldCodec::MethodAllocateSecure())) {
     const auto *args = std::get_if<flutter::EncodableMap>(method_call.arguments());
     if (!args) {
       result->Error("INVALID_ARGS", "Arguments required");
@@ -130,7 +131,7 @@ void FlutterNeoShieldPlugin::HandleMethodCall(
     secure_storage_[id] = std::move(data);
     result->Success();
   }
-  else if (method == "readSecure") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodReadSecure())) {
     const auto *args = std::get_if<flutter::EncodableMap>(method_call.arguments());
     if (!args) {
       result->Error("NOT_FOUND", "No secure data found");
@@ -150,7 +151,7 @@ void FlutterNeoShieldPlugin::HandleMethodCall(
     }
     result->Success(flutter::EncodableValue(it->second));
   }
-  else if (method == "wipeSecure") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodWipeSecure())) {
     const auto *args = std::get_if<flutter::EncodableMap>(method_call.arguments());
     if (args) {
       auto id_it = args->find(flutter::EncodableValue("id"));
@@ -168,7 +169,7 @@ void FlutterNeoShieldPlugin::HandleMethodCall(
     }
     result->Success();
   }
-  else if (method == "wipeAll") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodWipeAll())) {
     std::lock_guard<std::mutex> lock(storage_mutex_);
     for (auto &pair : secure_storage_) {
       if (!pair.second.empty()) {
@@ -179,56 +180,56 @@ void FlutterNeoShieldPlugin::HandleMethodCall(
     result->Success();
   }
   // RASP Shield
-  else if (method == "checkDebugger") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckDebugger())) {
     result->Success(flutter::EncodableValue(DebuggerDetector::Check()));
   }
-  else if (method == "checkRoot") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckRoot())) {
     result->Success(flutter::EncodableValue(PrivilegeDetector::Check()));
   }
-  else if (method == "checkEmulator") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckEmulator())) {
     result->Success(flutter::EncodableValue(VMDetector::Check()));
   }
-  else if (method == "checkHooks") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckHooks())) {
     result->Success(flutter::EncodableValue(HookDetector::Check()));
   }
-  else if (method == "checkFrida") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckFrida())) {
     result->Success(flutter::EncodableValue(FridaDetector::Check()));
   }
-  else if (method == "checkIntegrity") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckIntegrity())) {
     result->Success(flutter::EncodableValue(IntegrityDetector::Check()));
   }
-  else if (method == "checkDeveloperMode") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckDeveloperMode())) {
     result->Success(flutter::EncodableValue(DeveloperModeDetector::Check()));
   }
-  else if (method == "checkSignature") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckSignature())) {
     result->Success(flutter::EncodableValue(SignatureDetector::Check()));
   }
-  else if (method == "getSignatureHash") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodGetSignatureHash())) {
     result->Success();
   }
-  else if (method == "checkNativeDebug") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckNativeDebug())) {
     result->Success(flutter::EncodableValue(NativeDebugDetector::Check()));
   }
-  else if (method == "checkNetworkThreats") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckNetworkThreats())) {
     result->Success(flutter::EncodableValue(NetworkThreatDetector::CheckSimple()));
   }
   // Screen Shield
-  else if (method == "enableScreenProtection") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodEnableScreenProtection())) {
     result->Success(flutter::EncodableValue(screen_protector_.Enable()));
   }
-  else if (method == "disableScreenProtection") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodDisableScreenProtection())) {
     result->Success(flutter::EncodableValue(screen_protector_.Disable()));
   }
-  else if (method == "isScreenProtectionActive") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodIsScreenProtectionActive())) {
     result->Success(flutter::EncodableValue(screen_protector_.IsActive()));
   }
-  else if (method == "enableAppSwitcherGuard") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodEnableAppSwitcherGuard())) {
     result->Success(flutter::EncodableValue(false));
   }
-  else if (method == "disableAppSwitcherGuard") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodDisableAppSwitcherGuard())) {
     result->Success(flutter::EncodableValue(false));
   }
-  else if (method == "isScreenBeingRecorded") {
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodIsScreenBeingRecorded())) {
     result->Success(flutter::EncodableValue(screen_recording_detector_.IsRecording()));
   }
   else {

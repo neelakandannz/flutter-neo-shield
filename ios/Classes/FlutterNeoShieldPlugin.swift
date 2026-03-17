@@ -17,19 +17,19 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let memoryChannel = FlutterMethodChannel(
-            name: "com.neelakandan.flutter_neo_shield/memory",
+            name: ShieldCodec.chMemory,
             binaryMessenger: registrar.messenger()
         )
         let raspChannel = FlutterMethodChannel(
-            name: "com.neelakandan.flutter_neo_shield/rasp",
+            name: ShieldCodec.chRasp,
             binaryMessenger: registrar.messenger()
         )
         let screenChannel = FlutterMethodChannel(
-            name: "com.neelakandan.flutter_neo_shield/screen",
+            name: ShieldCodec.chScreen,
             binaryMessenger: registrar.messenger()
         )
         let screenEventChannel = FlutterEventChannel(
-            name: "com.neelakandan.flutter_neo_shield/screen_events",
+            name: ShieldCodec.chScreenEvents,
             binaryMessenger: registrar.messenger()
         )
 
@@ -43,10 +43,10 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         // Allow methods that don't require arguments
         let args = call.arguments as? [String: Any]
+        let method = call.method
 
-        switch call.method {
         // Memory Shield
-        case "allocateSecure":
+        if method == ShieldCodec.mAllocateSecure {
             guard let args = args,
                   let id = args["id"] as? String,
                   let data = args["data"] as? FlutterStandardTypedData else {
@@ -55,8 +55,7 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
             }
             secureStorage[id] = Data(data.data)
             result(nil)
-
-        case "readSecure":
+        } else if method == ShieldCodec.mReadSecure {
             guard let args = args,
                   let id = args["id"] as? String,
                   let data = secureStorage[id] else {
@@ -64,79 +63,81 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
                 return
             }
             result(FlutterStandardTypedData(bytes: data))
-
-        case "wipeSecure":
+        } else if method == ShieldCodec.mWipeSecure {
             let id = args?["id"] as? String
             if let id = id, let count = secureStorage[id]?.count, count > 0 {
                 secureStorage[id]?.resetBytes(in: 0..<count)
                 secureStorage.removeValue(forKey: id)
             }
             result(nil)
-
-        case "wipeAll":
+        } else if method == ShieldCodec.mWipeAll {
             wipeAll()
             result(nil)
 
-        // RASP Shield
-        case "checkDebugger":
-            result(DebuggerDetector.check())
-
-        case "checkRoot":
-            result(JailbreakDetector.check())
-
-        case "checkEmulator":
-            result(EmulatorDetector.check())
-
-        case "checkHooks":
-            result(HookDetector.check())
-
-        case "checkFrida":
-            result(FridaDetector.check())
-
-        case "checkIntegrity":
-            result(IntegrityDetector.check())
-
-        case "checkDeveloperMode":
-            result(DeveloperModeDetector.check())
-
-        case "checkSignature":
-            result(SignatureDetectorP0.check())
-
-        case "getSignatureHash":
+        // RASP Shield — all boolean results wrapped through validateResult()
+        // for self-integrity and cross-detector validation.
+        } else if method == ShieldCodec.mCheckDebugger {
+            result(validateResult(DebuggerDetector.check()))
+        } else if method == ShieldCodec.mCheckRoot {
+            result(validateRootResult(JailbreakDetector.check()))
+        } else if method == ShieldCodec.mCheckEmulator {
+            result(validateResult(EmulatorDetector.check()))
+        } else if method == ShieldCodec.mCheckHooks {
+            result(validateResult(HookDetector.check()))
+        } else if method == ShieldCodec.mCheckFrida {
+            result(validateResult(FridaDetector.check()))
+        } else if method == ShieldCodec.mCheckIntegrity {
+            result(validateResult(IntegrityDetector.check()))
+        } else if method == ShieldCodec.mCheckDeveloperMode {
+            result(validateResult(DeveloperModeDetector.check()))
+        } else if method == ShieldCodec.mCheckSignature {
+            result(validateResult(SignatureDetectorP0.check()))
+        } else if method == ShieldCodec.mGetSignatureHash {
             // iOS doesn't expose signing certificate hash the same way Android does.
             // Return nil — the developer should use Android for hash retrieval.
             result(nil)
-
-        case "checkNativeDebug":
-            result(NativeDebugDetector.check())
-
-        case "checkNetworkThreats":
-            result(NetworkThreatDetector.checkSimple())
+        } else if method == ShieldCodec.mCheckNativeDebug {
+            result(validateResult(NativeDebugDetector.check()))
+        } else if method == ShieldCodec.mCheckNetworkThreats {
+            result(validateResult(NetworkThreatDetector.checkSimple()))
 
         // Screen Shield
-        case "enableScreenProtection":
+        } else if method == ShieldCodec.mEnableScreenProtection {
             result(screenProtector.enable(in: getKeyWindow()))
-
-        case "disableScreenProtection":
+        } else if method == ShieldCodec.mDisableScreenProtection {
             result(screenProtector.disable())
-
-        case "isScreenProtectionActive":
+        } else if method == ShieldCodec.mIsScreenProtectionActive {
             result(screenProtector.isActive)
-
-        case "enableAppSwitcherGuard":
+        } else if method == ShieldCodec.mEnableAppSwitcherGuard {
             appSwitcherGuard.enable(in: getKeyWindow())
             result(true)
-
-        case "disableAppSwitcherGuard":
+        } else if method == ShieldCodec.mDisableAppSwitcherGuard {
             appSwitcherGuard.disable()
             result(true)
-
-        case "isScreenBeingRecorded":
+        } else if method == ShieldCodec.mIsScreenBeingRecorded {
             result(recordingDetector.isRecording)
-
-        default:
+        } else {
             result(FlutterMethodNotImplemented)
         }
+    }
+
+    /// Cross-validates a RASP detection result with the self-integrity checker.
+    ///
+    /// If the detector returned false (not detected) but our own code has been
+    /// hooked, we override to true (detected) — because the "false" result
+    /// cannot be trusted if the detection code itself is compromised.
+    private func validateResult(_ detected: Bool) -> Bool {
+        if detected { return true }
+        if SelfIntegrityChecker.isHooked() { return true }
+        return false
+    }
+
+    /// Cross-detector validation for jailbreak: if root returns false but
+    /// hooks are detected, flag root as suspicious (hook frameworks hide jailbreak).
+    private func validateRootResult(_ rootDetected: Bool) -> Bool {
+        if rootDetected { return true }
+        if HookDetector.check() { return true }
+        return validateResult(rootDetected)
     }
 
     /// Returns the key window, using the modern UIWindowScene API on iOS 15+

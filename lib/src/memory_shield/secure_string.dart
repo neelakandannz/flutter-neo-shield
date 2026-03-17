@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
 
+import '../platform/shield_codec.dart';
 import 'memory_shield.dart';
 
 /// A secure container for sensitive strings that overwrites content on dispose.
@@ -172,7 +173,7 @@ class SecureString implements SecureDisposable {
   void _tryPlatformAllocate() {
     if (!MemoryShield().config.enablePlatformWipe) return;
 
-    MemoryShield.channel.invokeMethod<void>('allocateSecure', {
+    MemoryShield.channel.invokeMethod<void>(ShieldCodec.d(ShieldCodec.mAllocateSecure), {
       'id': _id,
       'data': _bytes,
     }).catchError((_) {
@@ -183,7 +184,7 @@ class SecureString implements SecureDisposable {
   void _tryPlatformWipe() {
     if (!MemoryShield().config.enablePlatformWipe) return;
 
-    MemoryShield.channel.invokeMethod<void>('wipeSecure', {
+    MemoryShield.channel.invokeMethod<void>(ShieldCodec.d(ShieldCodec.mWipeSecure), {
       'id': _id,
     }).catchError((_) {
       // Platform channel unavailable — Dart-side wipe already done.

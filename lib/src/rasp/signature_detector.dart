@@ -1,4 +1,5 @@
 import '../platform/rasp_channel.dart';
+import '../platform/shield_codec.dart';
 import 'security_result.dart';
 
 /// Detects APK/IPA repackaging by verifying the signing certificate
@@ -13,6 +14,9 @@ import 'security_result.dart';
 /// This is the **#1 defense against APK repackaging** — the most common
 /// desktop-based reverse engineering attack.
 class SignatureDetector {
+  static final String _m = ShieldCodec.d(ShieldCodec.mCheckSignature);
+  static final String _mHash = ShieldCodec.d(ShieldCodec.mGetSignatureHash);
+
   /// Executes the signature verification check on the native platform.
   ///
   /// Optionally provide [expectedSignatureHash] (SHA-256 of your signing
@@ -22,13 +26,10 @@ class SignatureDetector {
   /// Use [RaspShield.getSignatureHash()] to obtain your app's current
   /// signing certificate hash during development.
   static Future<SecurityResult> check() async {
-    final isDetected =
-        await RaspChannel.invokeDetection('checkSignature');
+    final isDetected = await RaspChannel.invokeDetection(_m);
     return SecurityResult(
       isDetected: isDetected,
-      message: isDetected
-          ? 'APK/IPA signature anomaly detected (possible repackaging)'
-          : null,
+      message: isDetected ? 'Signature anomaly detected' : null,
     );
   }
 
@@ -40,8 +41,7 @@ class SignatureDetector {
   /// Returns null on platforms that don't support this.
   static Future<String?> getSignatureHash() async {
     try {
-      final hash =
-          await RaspChannel.invokeStringMethod('getSignatureHash');
+      final hash = await RaspChannel.invokeStringMethod(_mHash);
       return hash;
     } catch (e) {
       return null;

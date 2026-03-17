@@ -2,6 +2,20 @@ import Foundation
 import Darwin
 
 public class FridaDetector {
+
+    private static let _k: [Int] = [0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22]
+    private static func d(_ e: [Int]) -> String {
+        String(e.enumerated().map { i, v in Character(UnicodeScalar(v ^ _k[i % _k.count])!) })
+    }
+
+    // Frida file paths (encoded)
+    private static let fridaPaths: [String] = [
+        d([97,38,59,62,107,61,49,33,34,107,40,33,33,40,37,99,32,45,62,50,43,33]),
+        d([97,38,59,62,107,44,58,38,99,34,60,58,44,45,105,61,54,58,58,33,60]),
+        d([97,38,59,62,107,34,60,43,45,40,97,49,33,34,107,40,33,33,40,37,99,32,45,62,50,43,33]),
+        d([97,38,59,62,107,34,58,42,99,34,60,58,44,45]),
+    ]
+
     public static func check() -> Bool {
         // 1. Check for Frida default ports
         let fridaPorts: [in_port_t] = [27042, 27043, 4444]
@@ -13,20 +27,11 @@ public class FridaDetector {
         }
 
         // 2. Check for frida-related named pipes / files
-        let fridaPaths = [
-            "/usr/sbin/frida-server",
-            "/usr/bin/frida-server",
-            "/usr/local/bin/frida-server",
-            "/usr/lib/frida",
-        ]
         for path in fridaPaths {
             if FileManager.default.fileExists(atPath: path) {
                 return true
             }
         }
-
-        // 3. We also check for loaded dylib "frida" in HookDetector
-        // which serves as the memory scan on iOS.
 
         return false
     }
@@ -36,7 +41,6 @@ public class FridaDetector {
         guard sockfd != -1 else { return false }
         defer { close(sockfd) }
 
-        // Set a short timeout so we don't block
         var timeout = timeval(tv_sec: 1, tv_usec: 0)
         setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
 

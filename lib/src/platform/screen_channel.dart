@@ -2,16 +2,18 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'dart:developer' as developer;
 
+import 'shield_codec.dart';
+
 /// Handles communication between Flutter and native layer for Screen Shield.
 ///
 /// Provides methods to enable/disable screen protection and streams for
 /// screenshot and recording detection events.
 class ScreenChannel {
-  static const MethodChannel _channel =
-      MethodChannel('com.neelakandan.flutter_neo_shield/screen');
+  static final MethodChannel _channel =
+      MethodChannel(ShieldCodec.d(ShieldCodec.chScreen));
 
-  static const EventChannel _eventChannel =
-      EventChannel('com.neelakandan.flutter_neo_shield/screen_events');
+  static final EventChannel _eventChannel =
+      EventChannel(ShieldCodec.d(ShieldCodec.chScreenEvents));
 
   static Stream<dynamic>? _eventStream;
   static bool _streamErrored = false;
@@ -37,16 +39,24 @@ class ScreenChannel {
     return _eventStream!;
   }
 
+  // Cached decoded method names (decoded once, reused).
+  static final String _mEnable = ShieldCodec.d(ShieldCodec.mEnableScreenProtection);
+  static final String _mDisable = ShieldCodec.d(ShieldCodec.mDisableScreenProtection);
+  static final String _mIsActive = ShieldCodec.d(ShieldCodec.mIsScreenProtectionActive);
+  static final String _mEnableGuard = ShieldCodec.d(ShieldCodec.mEnableAppSwitcherGuard);
+  static final String _mDisableGuard = ShieldCodec.d(ShieldCodec.mDisableAppSwitcherGuard);
+  static final String _mIsRecorded = ShieldCodec.d(ShieldCodec.mIsScreenBeingRecorded);
+
   /// Enable screen protection (screenshots + recording).
   static Future<bool> enableProtection() async {
     try {
       final result =
-          await _channel.invokeMethod<bool>('enableScreenProtection');
+          await _channel.invokeMethod<bool>(_mEnable);
       return result ?? false;
     } on MissingPluginException {
       developer.log(
-        'enableScreenProtection: native plugin not registered — '
-        'screen protection unavailable on this platform',
+        'screen protection: native plugin not registered — '
+        'unavailable on this platform',
         name: 'ScreenChannel',
       );
       return false;
@@ -63,11 +73,11 @@ class ScreenChannel {
   static Future<bool> disableProtection() async {
     try {
       final result =
-          await _channel.invokeMethod<bool>('disableScreenProtection');
+          await _channel.invokeMethod<bool>(_mDisable);
       return result ?? false;
     } on MissingPluginException {
       developer.log(
-        'disableScreenProtection: native plugin not registered',
+        'screen protection disable: native plugin not registered',
         name: 'ScreenChannel',
       );
       return false;
@@ -84,7 +94,7 @@ class ScreenChannel {
   static Future<bool> isProtectionActive() async {
     try {
       final result =
-          await _channel.invokeMethod<bool>('isScreenProtectionActive');
+          await _channel.invokeMethod<bool>(_mIsActive);
       return result ?? false;
     } on MissingPluginException {
       return false;
@@ -101,11 +111,11 @@ class ScreenChannel {
   static Future<bool> enableAppSwitcherGuard() async {
     try {
       final result =
-          await _channel.invokeMethod<bool>('enableAppSwitcherGuard');
+          await _channel.invokeMethod<bool>(_mEnableGuard);
       return result ?? false;
     } on MissingPluginException {
       developer.log(
-        'enableAppSwitcherGuard: native plugin not registered',
+        'app switcher guard: native plugin not registered',
         name: 'ScreenChannel',
       );
       return false;
@@ -122,11 +132,11 @@ class ScreenChannel {
   static Future<bool> disableAppSwitcherGuard() async {
     try {
       final result =
-          await _channel.invokeMethod<bool>('disableAppSwitcherGuard');
+          await _channel.invokeMethod<bool>(_mDisableGuard);
       return result ?? false;
     } on MissingPluginException {
       developer.log(
-        'disableAppSwitcherGuard: native plugin not registered',
+        'app switcher guard disable: native plugin not registered',
         name: 'ScreenChannel',
       );
       return false;
@@ -143,7 +153,7 @@ class ScreenChannel {
   static Future<bool> isScreenBeingRecorded() async {
     try {
       final result =
-          await _channel.invokeMethod<bool>('isScreenBeingRecorded');
+          await _channel.invokeMethod<bool>(_mIsRecorded);
       return result ?? false;
     } on MissingPluginException {
       return false;

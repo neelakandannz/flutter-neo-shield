@@ -24,7 +24,8 @@ bool DebuggerDetector::CheckRemoteDebugger() {
   if (::CheckRemoteDebuggerPresent(::GetCurrentProcess(), &debugger_present)) {
     return debugger_present != FALSE;
   }
-  return false;
+  // Fail-closed: if API call fails, assume debugger present
+  return true;
 }
 
 /// NtGlobalFlag in PEB is set to 0x70 (FLG_HEAP_ENABLE_TAIL_CHECK |

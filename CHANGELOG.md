@@ -1,3 +1,46 @@
+## 1.10.0
+
+### Anti-Reverse-Engineering Hardening
+
+Comprehensive hardening of the plugin binary across all 6 platforms to resist static analysis, dynamic hooking, and repackaging attacks.
+
+#### P0: XOR String Encoding (All Platforms)
+
+* **Dart:** Created `ShieldCodec` utility — all MethodChannel names and method names are stored as XOR-encoded byte arrays and decoded at runtime. No plaintext channel/method strings in compiled Dart output.
+* **Android (Kotlin):** `ShieldCodec.kt` — all channel registrations and method dispatch use runtime-decoded strings.
+* **iOS (Swift):** `ShieldCodec.swift` — plugin entry point and all RASP detectors use encoded strings.
+* **macOS (Swift):** `ShieldCodec.swift` — same encoding as iOS.
+* **Windows (C++):** `shield_codec.h` — `ShieldCodec::Decode()` replaces all plaintext detection strings in RASP detectors.
+* **Linux (C++):** `shield_codec.h` — same C++ codec, all detector string literals replaced.
+* **Web:** `flutter_neo_shield_web.dart` rewritten with cached decoded method names and if-else dispatch (no plaintext switch cases).
+
+#### P1: ProGuard & Native String Encryption
+
+* **Android ProGuard:** Added `proguard-rules.pro` and `consumer-proguard-rules.pro` — obfuscates all internal detector classes, keeps only the public plugin entry point.
+* **Native detection strings:** File paths, process names, registry keys, and other detection indicators in Windows/Linux/iOS/macOS/Android RASP detectors replaced with XOR-encoded equivalents.
+
+#### P2: Build-Level Hardening
+
+* **iOS/macOS podspecs:** Added `pod_target_xcconfig` with `-Os` optimization, dead code stripping, symbol stripping, and debug symbol removal.
+* **Windows CMakeLists.txt:** Added `/O2`, `/GL` (whole program optimization), Link-Time Code Generation, static runtime linking.
+* **Linux CMakeLists.txt:** Added `-O2`, `-fvisibility=hidden`, `--strip-all`, `--gc-sections` (dead code elimination).
+
+#### P3: Self-Protection & Fail-Safety
+
+* **Android `SelfIntegrityChecker`:** Verifies classloader chain integrity, scans stack traces for hook frameworks (Xposed/Frida/Substrate), checks class hierarchy for injected superclasses.
+* **iOS `SelfIntegrityChecker`:** Detects ObjC method swizzling on `FlutterNeoShieldPlugin`, checks `DYLD_INSERT_LIBRARIES` injection, scans for suspicious ObjC classes (Substrate, Frida, Cydia).
+* **Cross-detector validation (Android/iOS):** If self-integrity check fails, all individual detector results are overridden to "detected" — prevents selective hook bypasses.
+* **Fail-closed exception handling:** Fixed catch blocks across 15+ detector methods on Android, macOS, Windows, and Linux to return `true` (threat detected) instead of `false` (safe) on exceptions.
+
+#### Other Changes
+
+* **Version:** 1.9.0 → 1.10.0
+* **iOS podspec version:** Synced to 1.10.0 (was 0.9.0).
+* **README:** Added Anti-Reverse-Engineering Hardening section with app-level `--obfuscate` recommendation.
+* **All 338 tests pass.** Zero Dart analysis issues.
+
+---
+
 ## 1.9.0
 
 ### Native RASP, Screen Shield & Memory Shield on All 6 Platforms + WASM Support

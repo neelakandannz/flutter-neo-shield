@@ -1,4 +1,5 @@
 import '../platform/rasp_channel.dart';
+import '../platform/shield_codec.dart';
 import 'security_result.dart';
 
 /// Detects native-level debuggers (GDB, LLDB, strace) attached from desktop.
@@ -18,15 +19,14 @@ import 'security_result.dart';
 /// - Timing anomaly — single-stepping detection
 /// - PT_DENY_ATTACH support — prevents debugger attachment entirely
 class NativeDebugDetector {
+  static final String _m = ShieldCodec.d(ShieldCodec.mCheckNativeDebug);
+
   /// Executes native-level debug detection on the platform.
   static Future<SecurityResult> check() async {
-    final isDetected =
-        await RaspChannel.invokeDetection('checkNativeDebug');
+    final isDetected = await RaspChannel.invokeDetection(_m);
     return SecurityResult(
       isDetected: isDetected,
-      message: isDetected
-          ? 'Native debugger detected (GDB/LLDB/strace via TracerPid or exception ports)'
-          : null,
+      message: isDetected ? 'Native debugger detected' : null,
     );
   }
 }

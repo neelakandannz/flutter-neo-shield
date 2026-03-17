@@ -42,5 +42,16 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE
   ntdll
 )
 
+# Build-level security hardening
+target_compile_options(${PLUGIN_NAME} PRIVATE
+  $<$<CONFIG:Release>:/O2 /GL>
+)
+set_target_properties(${PLUGIN_NAME} PROPERTIES
+  MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+)
+target_link_options(${PLUGIN_NAME} PRIVATE
+  $<$<CONFIG:Release>:/LTCG>
+)
+
 # List of absolute paths to libraries that should be bundled with the plugin
 set(flutter_neo_shield_bundled_libraries "" PARENT_SCOPE)

@@ -1,34 +1,25 @@
 import Foundation
 
 public class IntegrityDetector {
+
+    private static let _k: [Int] = [0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22]
+    private static func d(_ e: [Int]) -> String {
+        String(e.enumerated().map { i, v in Character(UnicodeScalar(v ^ _k[i % _k.count])!) })
+    }
+
+    private static let sMobileProvision = d([43,62,42,41,32,42,54,44,98,41,33,49,33,32,33,62,33,39,58,45,61,58,39,34])
+    private static let sSandboxReceipt = d([61,50,38,40,38,33,43,26,41,39,43,58,56,56])
+
     public static func check() -> Bool {
-        // Simple Integrity check for iOS
-        // If the app is distributed via App Store, `embedded.mobileprovision` won't exist.
-        // If it exists, it means the app was sideloaded or repackaged (or ad-hoc/enterprise).
-        // Since many developers use Ad-Hoc/TestFlight, this might have false positives during dev.
-        // In a real RASP, you would also verify the Mach-O signature and Team ID.
-        
         let bundlePath = Bundle.main.bundlePath
-        let provisionPath = bundlePath + "/embedded.mobileprovision"
-        
-        // As a basic verification, if someone tampered with the bundle, the code signature changes.
-        // Since we are running in process, checking mobileprovision is a common first step.
-        // We will return true if we suspect tampering, but in development this may trigger true.
-        // A more advanced check is omitted for brevity.
-        
-        // For demonstration, let's also check if we are running in Simulator (which we cover in EmulatorDetector anyway).
-        
-        // Another common check is looking for inserted libraries that aren't ours, whichHookDetector does.
-        
-        // Let's implement the provision check but we'll return false if it's TestFlight
-        let isTestFlight = Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
-        
+        let provisionPath = bundlePath + "/" + sMobileProvision
+
+        let isTestFlight = Bundle.main.appStoreReceiptURL?.lastPathComponent == sSandboxReceipt
+
         if FileManager.default.fileExists(atPath: provisionPath) && !isTestFlight {
-            // Note: This could flag Enterprise/AdHoc builds as 'tampered'.
-            // Many security SDKs treat sideloaded/enterprise as a risk.
             return true
         }
-        
+
         return false
     }
 }

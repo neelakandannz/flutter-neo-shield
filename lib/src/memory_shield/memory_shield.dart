@@ -4,6 +4,7 @@ library;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../platform/shield_codec.dart';
 import 'memory_shield_config.dart';
 
 /// Interface for objects that can be securely disposed by [MemoryShield].
@@ -39,8 +40,8 @@ class MemoryShield with WidgetsBindingObserver {
   bool _isBound = false;
 
   /// The method channel for native memory operations.
-  static const MethodChannel channel =
-      MethodChannel('com.neelakandan.flutter_neo_shield/memory');
+  static final MethodChannel channel =
+      MethodChannel(ShieldCodec.d(ShieldCodec.chMemory));
 
   /// The current configuration.
   MemoryShieldConfig get config => _config;
@@ -138,7 +139,7 @@ class MemoryShield with WidgetsBindingObserver {
   void _tryPlatformWipeAll() {
     if (!_config.enablePlatformWipe) return;
 
-    channel.invokeMethod<void>('wipeAll').catchError((_) {
+    channel.invokeMethod<void>(ShieldCodec.d(ShieldCodec.mWipeAll)).catchError((_) {
       // Platform channel unavailable — ignore.
     });
   }

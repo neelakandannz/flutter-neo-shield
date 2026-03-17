@@ -2,16 +2,25 @@ import Foundation
 import Darwin
 import SystemConfiguration
 
-/// Detects network-level threats on macOS:
-///
-/// 1. HTTP/HTTPS/SOCKS Proxy — Burp Suite, mitmproxy, Charles Proxy
-/// 2. VPN tunnels — routing traffic through interceptors
-/// 3. Suspicious DNS configuration
-///
-/// These detect MITM attack setups commonly used for reverse engineering.
 public class NetworkThreatDetector {
 
-    /// Returns detailed detection results.
+    private static let _k: [Int] = [0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22]
+    private static func d(_ e: [Int]) -> String {
+        String(e.enumerated().map { i, v in Character(UnicodeScalar(v ^ _k[i % _k.count])!) })
+    }
+
+    private static let vpnPrefixes: [String] = [
+        d([59,39,61,34]), d([62,35,56]), d([39,35,59,41,39]), d([58,50,56]), d([58,38,38]),
+    ]
+
+    private static let proxyVars: [String] = [
+        d([38,39,60,60,27,62,33,39,52,61]),
+        d([38,39,60,60,55,17,35,58,35,60,55]),
+        d([6,7,28,28,27,30,1,7,20,29]),
+        d([6,7,28,28,23,17,3,26,3,28,23]),
+        d([15,31,4,19,20,28,28,16,21]),
+    ]
+
     public static func check() -> [String: Any] {
         let proxyDetected = checkProxy()
         let vpnDetected = checkVpn()
@@ -23,22 +32,15 @@ public class NetworkThreatDetector {
         ]
     }
 
-    /// Simple boolean: true if proxy or VPN detected.
     public static func checkSimple() -> Bool {
         return checkProxy() || checkVpn()
     }
 
-    /// Detect HTTP/HTTPS/SOCKS proxy configuration.
-    ///
-    /// Uses SCDynamicStoreCopyProxies which reads the system proxy
-    /// configuration — same source as CFNetworkCopySystemProxySettings.
     private static func checkProxy() -> Bool {
-        // Method 1: SystemConfiguration proxy settings
         guard let proxySettings = SCDynamicStoreCopyProxies(nil) as? [String: Any] else {
             return false
         }
 
-        // Check HTTP proxy
         if let httpEnabled = proxySettings[kSCPropNetProxiesHTTPEnable as String] as? Int,
            httpEnabled == 1 {
             if let httpProxy = proxySettings[kSCPropNetProxiesHTTPProxy as String] as? String,
@@ -47,7 +49,6 @@ public class NetworkThreatDetector {
             }
         }
 
-        // Check HTTPS proxy
         if let httpsEnabled = proxySettings[kSCPropNetProxiesHTTPSEnable as String] as? Int,
            httpsEnabled == 1 {
             if let httpsProxy = proxySettings[kSCPropNetProxiesHTTPSProxy as String] as? String,
@@ -56,7 +57,6 @@ public class NetworkThreatDetector {
             }
         }
 
-        // Check SOCKS proxy
         if let socksEnabled = proxySettings[kSCPropNetProxiesSOCKSEnable as String] as? Int,
            socksEnabled == 1 {
             if let socksProxy = proxySettings[kSCPropNetProxiesSOCKSProxy as String] as? String,
@@ -65,9 +65,7 @@ public class NetworkThreatDetector {
             }
         }
 
-        // Method 2: Check environment variables (CLI tools often set these)
         let env = ProcessInfo.processInfo.environment
-        let proxyVars = ["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]
         for varName in proxyVars {
             if let value = env[varName], !value.isEmpty {
                 return true
@@ -77,17 +75,12 @@ public class NetworkThreatDetector {
         return false
     }
 
-    /// Detect active VPN connections via network interfaces.
-    ///
-    /// VPN tunnels create virtual network interfaces with known prefixes.
     private static func checkVpn() -> Bool {
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else {
             return false
         }
         defer { freeifaddrs(ifaddr) }
-
-        let vpnPrefixes = ["utun", "ppp", "ipsec", "tap", "tun"]
 
         var addr = firstAddr
         while true {

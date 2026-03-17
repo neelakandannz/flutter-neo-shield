@@ -1,26 +1,38 @@
 import Foundation
 
-/// Detects if developer tools and configurations are present on macOS.
-///
-/// Unlike iOS (which has a Developer Mode toggle), macOS developer mode
-/// is indicated by:
-/// 1. Xcode Command Line Tools installed
-/// 2. Developer directory presence
-/// 3. DevToolsSecurity enabled (allows debugging unsigned code)
-/// 4. Gatekeeper disabled or permissive settings
 public class DeveloperModeDetector {
+
+    private static let _k: [Int] = [0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22]
+    private static func d(_ e: [Int]) -> String {
+        String(e.enumerated().map { i, v in Character(UnicodeScalar(v ^ _k[i % _k.count])!) })
+    }
+
+    private static let sSecurity = d([97,38,59,62,107,44,58,38,99,55,43,48,61,62,45,58,42])
+    private static let sAuthDb = d([47,38,60,36,43,60,58,50,45,48,39,60,38,40,38])
+    private static let sRead = d([60,54,41,40])
+    private static let sTaskport = d([61,42,59,56,33,35,125,56,62,45,56,58,36,41,35,43,125,60,45,55,37,35,39,62,48])
+    private static let sAllow = d([47,63,36,35,51])
+    private static let sDisabled = d([42,58,59,45,38,34,54,44])
+
+    private static let developerPaths: [String] = [
+        d([97,18,56,60,40,39,48,41,56,45,33,61,59,99,28,45,60,44,41,106,47,35,56]),
+        d([97,31,33,46,54,47,33,49,99,0,43,37,45,32,43,62,54,58,99,7,33,62,37,45,42,42,31,33,34,33,26,60,39,32,55]),
+        d([97,38,59,62,107,44,58,38,99,60,45,60,44,41,105,61,54,36,41,39,58]),
+    ]
+
+    private static let sXcodeSelect = d([97,38,59,62,107,44,58,38,99,60,45,60,44,41,105,61,54,36,41,39,58])
+    private static let sDashP = d([99,35])
+    private static let sSpctl = d([97,38,59,62,107,61,49,33,34,107,61,35,43,56,40])
+    private static let sDashDashStatus = d([99,126,59,56,37,58,38,59])
+
     public static func check() -> Bool {
         return checkDevToolsSecurity() || checkXcodePresence() || checkGatekeeper()
     }
 
-    /// Check if DevToolsSecurity is enabled.
-    ///
-    /// When enabled, non-admin users can attach debuggers to processes.
-    /// This is a strong indicator of a developer machine.
     private static func checkDevToolsSecurity() -> Bool {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = ["authorizationdb", "read", "system.privilege.taskport"]
+        process.executableURL = URL(fileURLWithPath: sSecurity)
+        process.arguments = [sAuthDb, sRead, sTaskport]
 
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -33,35 +45,26 @@ public class DeveloperModeDetector {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             let output = String(data: data, encoding: .utf8) ?? ""
 
-            // If allow is set, developer mode is essentially enabled
-            if output.contains("allow") {
+            if output.contains(sAllow) {
                 return true
             }
         } catch {
-            // Can't check — don't fail-closed for this heuristic
+            // Can't check
         }
 
         return false
     }
 
-    /// Check if Xcode or developer tools are installed.
     private static func checkXcodePresence() -> Bool {
-        let developerPaths = [
-            "/Applications/Xcode.app",
-            "/Library/Developer/CommandLineTools",
-            "/usr/bin/xcode-select",
-        ]
-
         for path in developerPaths {
             if FileManager.default.fileExists(atPath: path) {
                 return true
             }
         }
 
-        // Also check xcode-select -p to see if dev tools are configured
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
-        process.arguments = ["-p"]
+        process.executableURL = URL(fileURLWithPath: sXcodeSelect)
+        process.arguments = [sDashP]
 
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -81,13 +84,10 @@ public class DeveloperModeDetector {
         return false
     }
 
-    /// Check if Gatekeeper is disabled.
-    ///
-    /// Disabled Gatekeeper allows unsigned apps to run freely.
     private static func checkGatekeeper() -> Bool {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/spctl")
-        process.arguments = ["--status"]
+        process.executableURL = URL(fileURLWithPath: sSpctl)
+        process.arguments = [sDashDashStatus]
 
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -100,8 +100,7 @@ public class DeveloperModeDetector {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             let output = String(data: data, encoding: .utf8) ?? ""
 
-            // "assessments disabled" means Gatekeeper is off
-            if output.lowercased().contains("disabled") {
+            if output.lowercased().contains(sDisabled) {
                 return true
             }
         } catch {

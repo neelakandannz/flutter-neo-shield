@@ -15,19 +15,19 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let memoryChannel = FlutterMethodChannel(
-            name: "com.neelakandan.flutter_neo_shield/memory",
+            name: ShieldCodec.chMemory,
             binaryMessenger: registrar.messenger
         )
         let raspChannel = FlutterMethodChannel(
-            name: "com.neelakandan.flutter_neo_shield/rasp",
+            name: ShieldCodec.chRasp,
             binaryMessenger: registrar.messenger
         )
         let screenChannel = FlutterMethodChannel(
-            name: "com.neelakandan.flutter_neo_shield/screen",
+            name: ShieldCodec.chScreen,
             binaryMessenger: registrar.messenger
         )
         let screenEventChannel = FlutterEventChannel(
-            name: "com.neelakandan.flutter_neo_shield/screen_events",
+            name: ShieldCodec.chScreenEvents,
             binaryMessenger: registrar.messenger
         )
 
@@ -43,7 +43,7 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
 
         switch call.method {
         // Memory Shield
-        case "allocateSecure":
+        case ShieldCodec.mAllocateSecure:
             guard let args = args,
                   let id = args["id"] as? String,
                   let data = args["data"] as? FlutterStandardTypedData else {
@@ -53,7 +53,7 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
             secureStorage[id] = Data(data.data)
             result(nil)
 
-        case "readSecure":
+        case ShieldCodec.mReadSecure:
             guard let args = args,
                   let id = args["id"] as? String,
                   let data = secureStorage[id] else {
@@ -62,7 +62,7 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
             }
             result(FlutterStandardTypedData(bytes: data))
 
-        case "wipeSecure":
+        case ShieldCodec.mWipeSecure:
             let id = args?["id"] as? String
             if let id = id, let count = secureStorage[id]?.count, count > 0 {
                 secureStorage[id]?.resetBytes(in: 0..<count)
@@ -70,63 +70,63 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
             }
             result(nil)
 
-        case "wipeAll":
+        case ShieldCodec.mWipeAll:
             wipeAll()
             result(nil)
 
         // RASP Shield
-        case "checkDebugger":
+        case ShieldCodec.mCheckDebugger:
             result(DebuggerDetector.check())
 
-        case "checkRoot":
+        case ShieldCodec.mCheckRoot:
             result(SIPDetector.check())
 
-        case "checkEmulator":
+        case ShieldCodec.mCheckEmulator:
             result(VMDetector.check())
 
-        case "checkHooks":
+        case ShieldCodec.mCheckHooks:
             result(HookDetector.check())
 
-        case "checkFrida":
+        case ShieldCodec.mCheckFrida:
             result(FridaDetector.check())
 
-        case "checkIntegrity":
+        case ShieldCodec.mCheckIntegrity:
             result(IntegrityDetector.check())
 
-        case "checkDeveloperMode":
+        case ShieldCodec.mCheckDeveloperMode:
             result(DeveloperModeDetector.check())
 
-        case "checkSignature":
+        case ShieldCodec.mCheckSignature:
             result(SignatureDetector.check())
 
-        case "getSignatureHash":
+        case ShieldCodec.mGetSignatureHash:
             result(nil)
 
-        case "checkNativeDebug":
+        case ShieldCodec.mCheckNativeDebug:
             result(NativeDebugDetector.check())
 
-        case "checkNetworkThreats":
+        case ShieldCodec.mCheckNetworkThreats:
             result(NetworkThreatDetector.checkSimple())
 
         // Screen Shield
-        case "enableScreenProtection":
+        case ShieldCodec.mEnableScreenProtection:
             result(screenProtector.enable())
 
-        case "disableScreenProtection":
+        case ShieldCodec.mDisableScreenProtection:
             result(screenProtector.disable())
 
-        case "isScreenProtectionActive":
+        case ShieldCodec.mIsScreenProtectionActive:
             result(screenProtector.isActive)
 
-        case "enableAppSwitcherGuard":
+        case ShieldCodec.mEnableAppSwitcherGuard:
             // macOS doesn't have an app switcher like iOS
             // but we can hide window content on deactivation
             result(false)
 
-        case "disableAppSwitcherGuard":
+        case ShieldCodec.mDisableAppSwitcherGuard:
             result(false)
 
-        case "isScreenBeingRecorded":
+        case ShieldCodec.mIsScreenBeingRecorded:
             result(screenRecordingDetector.isRecording)
 
         default:

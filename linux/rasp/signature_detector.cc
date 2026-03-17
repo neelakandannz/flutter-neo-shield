@@ -5,20 +5,27 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <limits.h>
+#include "../shield_codec.h"
 
 namespace flutter_neo_shield {
+
+// Encoded strings
+static const std::string kProcExe = ShieldCodec::Decode({97,35,58,35,39,97,32,45,32,34,97,54,48,41}); // /proc/self/exe
+static const std::string kDangerousVars[] = {
+  ShieldCodec::Decode({2,23,23,28,22,11,31,7,13,0}),              // LD_PRELOAD
+  ShieldCodec::Decode({2,23,23,0,13,12,1,9,30,29,17,3,9,24,12}),  // LD_LIBRARY_PATH
+  ShieldCodec::Decode({2,23,23,13,17,10,26,28}),                   // LD_AUDIT
+};
+static const size_t kDangerousVarsCount = sizeof(kDangerousVars) / sizeof(kDangerousVars[0]);
 
 bool SignatureDetector::Check() {
   return CheckElfIntegrity() || CheckEnvironment();
 }
 
 /// Basic ELF integrity check.
-///
-/// Verify the ELF magic bytes and that the executable hasn't been
-/// obviously tampered with (e.g., corrupted header).
 bool SignatureDetector::CheckElfIntegrity() {
   char exe_path[PATH_MAX];
-  ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+  ssize_t len = readlink(kProcExe.c_str(), exe_path, sizeof(exe_path) - 1);
   if (len == -1) return true;
   exe_path[len] = '\0';
 
@@ -37,16 +44,10 @@ bool SignatureDetector::CheckElfIntegrity() {
   return false;
 }
 
-/// Check for DYLD/LD injection environment variables.
+/// Check for LD injection environment variables.
 bool SignatureDetector::CheckEnvironment() {
-  const char* dangerous_vars[] = {
-    "LD_PRELOAD",
-    "LD_LIBRARY_PATH",
-    "LD_AUDIT",
-  };
-
-  for (const auto& var : dangerous_vars) {
-    const char* val = getenv(var);
+  for (size_t i = 0; i < kDangerousVarsCount; i++) {
+    const char* val = getenv(kDangerousVars[i].c_str());
     if (val && strlen(val) > 0) {
       return true;
     }

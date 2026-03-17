@@ -16,6 +16,17 @@ import java.io.File
  */
 class NativeDebugDetector {
 
+    companion object {
+        private val _k = intArrayOf(0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22)
+        private fun d(vararg e: Int): String = String(CharArray(e.size) { i -> (e[i] xor _k[i % _k.size]).toChar() })
+
+        private val procStatusPath = d(97,35,58,35,39,97,32,45,32,34,97,32,60,45,48,59,32)
+        private val tracerPidStr = d(26,33,41,47,33,60,3,33,40,126)
+        private val procWchanPath = d(97,35,58,35,39,97,32,45,32,34,97,36,43,36,37,32)
+        private val ptraceStopStr = d(62,39,58,45,39,43,12,59,56,43,62)
+        private val traceStr = d(58,33,41,47,33)
+    }
+
     fun check(): Boolean {
         return checkTracerPid() || checkWchan() || checkTimingAnomaly()
     }
@@ -26,20 +37,21 @@ class NativeDebugDetector {
      */
     private fun checkTracerPid(): Boolean {
         try {
-            val statusFile = File("/proc/self/status")
+            val statusFile = File(procStatusPath)
             if (!statusFile.exists()) return false
 
             val lines = statusFile.readLines()
             for (line in lines) {
-                if (line.startsWith("TracerPid:")) {
-                    val pid = line.substringAfter("TracerPid:").trim()
+                if (line.startsWith(tracerPidStr)) {
+                    val pid = line.substringAfter(tracerPidStr).trim()
                     if (pid != "0") {
                         return true // A process is tracing us
                     }
                 }
             }
         } catch (e: Exception) {
-            // If we can't read /proc, don't flag
+            // Fail-closed: if we can't read /proc/self/status, assume traced
+            return true
         }
         return false
     }
@@ -50,15 +62,16 @@ class NativeDebugDetector {
      */
     private fun checkWchan(): Boolean {
         try {
-            val wchanFile = File("/proc/self/wchan")
+            val wchanFile = File(procWchanPath)
             if (!wchanFile.exists()) return false
 
             val wchan = wchanFile.readText().trim()
-            if (wchan.contains("ptrace_stop") || wchan.contains("trace")) {
+            if (wchan.contains(ptraceStopStr) || wchan.contains(traceStr)) {
                 return true
             }
         } catch (e: Exception) {
-            // Ignore
+            // Fail-closed: if we can't read wchan, assume debug trace
+            return true
         }
         return false
     }
@@ -90,7 +103,8 @@ class NativeDebugDetector {
                 return true
             }
         } catch (e: Exception) {
-            // Ignore
+            // Fail-closed: timing check failure is suspicious
+            return true
         }
         return false
     }

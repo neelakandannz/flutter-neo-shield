@@ -1,25 +1,24 @@
 import Foundation
 import Security
 
-/// Detects code integrity violations on macOS.
-///
-/// Verifies that the application bundle has not been tampered with:
-/// 1. SecStaticCode / SecCodeCheckValidity — OS-level code signature verification
-/// 2. Bundle structure integrity checks
-/// 3. Executable hash verification
 public class IntegrityDetector {
+
+    private static let _k: [Int] = [0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22]
+    private static func d(_ e: [Int]) -> String {
+        String(e.enumerated().map { i, v in Character(UnicodeScalar(v ^ _k[i % _k.count])!) })
+    }
+
+    private static let sAnchorApple = d([47,61,43,36,43,60,115,41,60,52,34,54,104,43,33,32,54,58,37,39])
+    private static let sContentsCodeSig = d([97,16,39,34,48,43,61,60,63,107,17,16,39,40,33,29,58,47,34,37,58,38,58,41])
+    private static let sCodeResources = d([13,60,44,41,22,43,32,39,57,54,45,54,59])
+
     public static func check() -> Bool {
         return checkCodeSignature() || checkBundleStructure()
     }
 
-    /// Verify code signature using macOS Security framework.
-    ///
-    /// SecStaticCodeCreateWithPath + SecStaticCodeCheckValidity is the
-    /// definitive way to verify code signing on macOS. If the signature
-    /// is invalid (modified binary, re-signed, stripped), this fails.
     private static func checkCodeSignature() -> Bool {
         guard let bundleURL = Bundle.main.executableURL else {
-            return true // Can't find executable — suspicious
+            return true
         }
 
         var staticCode: SecStaticCode?
@@ -30,40 +29,29 @@ public class IntegrityDetector {
         )
 
         guard createResult == errSecSuccess, let code = staticCode else {
-            // Can't create code object — unsigned or corrupted
             return true
         }
 
-        // Check if the code signature is valid
-        // kSecCSCheckAllArchitectures verifies all slices in universal binary
         let checkResult = SecStaticCodeCheckValidity(
             code,
             SecCSFlags(rawValue: kSecCSCheckAllArchitectures),
-            nil // Use default requirement (any valid signature)
+            nil
         )
 
         if checkResult != errSecSuccess {
-            // Signature verification failed — tampered or unsigned
             return true
         }
 
-        // Additional check: verify the code is signed by Apple or a valid developer
         var requirement: SecRequirement?
         let reqResult = SecRequirementCreateWithString(
-            "anchor apple generic" as CFString,
+            sAnchorApple as CFString,
             SecCSFlags(),
             &requirement
         )
 
         if reqResult == errSecSuccess, let req = requirement {
-            let validResult = SecStaticCodeCheckValidity(
-                code,
-                SecCSFlags(),
-                req
-            )
+            let validResult = SecStaticCodeCheckValidity(code, SecCSFlags(), req)
             if validResult != errSecSuccess {
-                // Not signed by Apple or valid developer certificate
-                // This could be a re-signed binary
                 return true
             }
         }
@@ -71,17 +59,12 @@ public class IntegrityDetector {
         return false
     }
 
-    /// Verify the bundle structure hasn't been modified.
-    ///
-    /// Check for _CodeSignature directory and its contents.
     private static func checkBundleStructure() -> Bool {
         let bundlePath = Bundle.main.bundlePath
-        let codeSignPath = bundlePath + "/Contents/_CodeSignature"
-        let codeResPath = codeSignPath + "/CodeResources"
+        let codeSignPath = bundlePath + sContentsCodeSig
+        let codeResPath = codeSignPath + "/" + sCodeResources
 
-        // Missing CodeSignature directory means unsigned or stripped
         if !FileManager.default.fileExists(atPath: codeResPath) {
-            // During development, this may not exist
             #if DEBUG
             return false
             #else
@@ -89,7 +72,6 @@ public class IntegrityDetector {
             #endif
         }
 
-        // Verify CodeResources is a valid plist
         guard let data = FileManager.default.contents(atPath: codeResPath),
               let _ = try? PropertyListSerialization.propertyList(
                   from: data,

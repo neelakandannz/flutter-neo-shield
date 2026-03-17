@@ -24,7 +24,7 @@ apply plugin: 'kotlin-android'
 
 android {
     namespace 'com.neelakandan.flutter_neo_shield'
-    compileSdkVersion 33
+    compileSdk 34
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -41,5 +41,6 @@ android {
 
     defaultConfig {
         minSdkVersion 21
+        consumerProguardFiles 'consumer-proguard-rules.pro'
     }
 }

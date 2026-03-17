@@ -5,27 +5,29 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include "../shield_codec.h"
 
 namespace flutter_neo_shield {
+
+// Encoded strings
+static const std::string kProcExe = ShieldCodec::Decode({97,35,58,35,39,97,32,45,32,34,97,54,48,41}); // /proc/self/exe
+static const std::string kDeleted = ShieldCodec::Decode({110,123,44,41,40,43,39,45,40,109});            // " (deleted)"
 
 bool IntegrityDetector::Check() {
   return CheckProcExe() || CheckExecutableModified();
 }
 
 /// Check if /proc/self/exe points to an unexpected location.
-///
-/// If the binary has been copied/moved from its original install location,
-/// the symlink may differ from what we expect.
 bool IntegrityDetector::CheckProcExe() {
   char exe_path[PATH_MAX];
-  ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+  ssize_t len = readlink(kProcExe.c_str(), exe_path, sizeof(exe_path) - 1);
   if (len == -1) return true;  // Can't read — fail-closed
 
   exe_path[len] = '\0';
 
   // Check if the path ends with " (deleted)" — binary was replaced while running
   std::string path(exe_path);
-  if (path.find(" (deleted)") != std::string::npos) {
+  if (path.find(kDeleted) != std::string::npos) {
     return true;
   }
 
@@ -33,16 +35,13 @@ bool IntegrityDetector::CheckProcExe() {
 }
 
 /// Check if the executable file has been modified since it was started.
-///
-/// Compare the inode of /proc/self/exe with the actual file.
-/// If they differ, the binary was replaced.
 bool IntegrityDetector::CheckExecutableModified() {
   struct stat proc_stat, file_stat;
 
-  if (lstat("/proc/self/exe", &proc_stat) != 0) return false;
+  if (lstat(kProcExe.c_str(), &proc_stat) != 0) return false;
 
   char exe_path[PATH_MAX];
-  ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+  ssize_t len = readlink(kProcExe.c_str(), exe_path, sizeof(exe_path) - 1);
   if (len == -1) return false;
   exe_path[len] = '\0';
 

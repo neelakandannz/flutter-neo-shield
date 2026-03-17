@@ -17,6 +17,20 @@ import java.net.NetworkInterface
  */
 class NetworkThreatDetector {
 
+    companion object {
+        private val _k = intArrayOf(0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22)
+        private fun d(vararg e: Int): String = String(CharArray(e.size) { i -> (e[i] xor _k[i % _k.size]).toChar() })
+
+        private val sHttpProxy = d(38,39,60,60,106,62,33,39,52,61,6,60,59,56)
+        private val sHttpsProxy = d(38,39,60,60,55,96,35,58,35,60,55,27,39,63,48)
+        private val sColonZero = d(116,99)
+        private val sTun = d(58,38,38)
+        private val sPpp = d(62,35,56)
+        private val sTap = d(58,50,56)
+        private val sUtun = d(59,39,61,34)
+        private val sIpsec = d(39,35,59,41,39)
+    }
+
     /**
      * Returns a map with:
      *   "proxyDetected" -> Boolean
@@ -43,24 +57,22 @@ class NetworkThreatDetector {
 
     /**
      * Detects HTTP/HTTPS proxy configuration.
-     *
-     * Attackers configure proxy settings on the device/emulator to route
-     * traffic through Burp Suite or mitmproxy on their desktop.
      */
     private fun checkProxy(context: Context): Boolean {
         // Method 1: System property check
         try {
-            val httpProxy = System.getProperty("http.proxyHost")
+            val httpProxy = System.getProperty(sHttpProxy)
             if (!httpProxy.isNullOrEmpty()) {
                 return true
             }
 
-            val httpsProxy = System.getProperty("https.proxyHost")
+            val httpsProxy = System.getProperty(sHttpsProxy)
             if (!httpsProxy.isNullOrEmpty()) {
                 return true
             }
         } catch (e: Exception) {
-            // Ignore
+            // Fail-closed: if we can't read proxy settings, assume proxy present
+            return true
         }
 
         // Method 2: ConnectivityManager proxy info (API 23+)
@@ -74,7 +86,8 @@ class NetworkThreatDetector {
                     return true
                 }
             } catch (e: Exception) {
-                // Ignore
+                // Fail-closed: if ConnectivityManager check fails, assume proxy
+                return true
             }
         }
 
@@ -84,11 +97,12 @@ class NetworkThreatDetector {
                 context.contentResolver,
                 android.provider.Settings.Global.HTTP_PROXY
             )
-            if (!globalProxy.isNullOrEmpty() && globalProxy != ":0") {
+            if (!globalProxy.isNullOrEmpty() && globalProxy != sColonZero) {
                 return true
             }
         } catch (e: Exception) {
-            // Ignore
+            // Fail-closed: if we can't read global proxy, assume proxy present
+            return true
         }
 
         return false
@@ -96,9 +110,6 @@ class NetworkThreatDetector {
 
     /**
      * Detects active VPN connections.
-     *
-     * VPN tunnels are used to route all device traffic through a desktop
-     * machine running an intercepting proxy.
      */
     private fun checkVpn(context: Context): Boolean {
         // Method 1: ConnectivityManager network capabilities (API 23+)
@@ -113,7 +124,8 @@ class NetworkThreatDetector {
                     }
                 }
             } catch (e: Exception) {
-                // Ignore
+                // Fail-closed: if VPN capability check fails, assume VPN present
+                return true
             }
         }
 
@@ -124,16 +136,17 @@ class NetworkThreatDetector {
                 val iface = interfaces.nextElement()
                 if (!iface.isUp) continue
                 val name = iface.name.lowercase()
-                if (name.startsWith("tun") ||
-                    name.startsWith("ppp") ||
-                    name.startsWith("tap") ||
-                    name.startsWith("utun") ||
-                    name.startsWith("ipsec")) {
+                if (name.startsWith(sTun) ||
+                    name.startsWith(sPpp) ||
+                    name.startsWith(sTap) ||
+                    name.startsWith(sUtun) ||
+                    name.startsWith(sIpsec)) {
                     return true
                 }
             }
         } catch (e: Exception) {
-            // Ignore
+            // Fail-closed: if network interface check fails, assume VPN present
+            return true
         }
 
         return false

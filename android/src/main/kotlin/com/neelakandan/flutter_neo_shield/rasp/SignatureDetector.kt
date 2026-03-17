@@ -10,27 +10,20 @@ import java.util.zip.ZipFile
 /**
  * Detects APK repackaging by verifying the signing certificate hash
  * and checking classes.dex integrity.
- *
- * When an attacker decompiles an APK with apktool/jadx, modifies code,
- * and re-signs with their own key, the signing certificate changes.
- * This detector catches that.
  */
 class SignatureDetector {
 
-    /**
-     * Checks APK signature integrity.
-     *
-     * Returns a map with:
-     *   "signatureTampered" -> Boolean (true if signature mismatch or anomaly)
-     *   "dexTampered"       -> Boolean (true if classes.dex hash mismatch)
-     *   "detected"          -> Boolean (true if ANY tampering found)
-     *
-     * @param context Android context
-     * @param expectedSignatureHash Optional SHA-256 of the expected signing certificate.
-     *        If null, performs heuristic checks only (multiple signers, debuggable cert).
-     * @param expectedDexHashes Optional list of SHA-256 hashes for classes.dex, classes2.dex, etc.
-     *        If null, DEX integrity check is skipped.
-     */
+    companion object {
+        private val _k = intArrayOf(0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22)
+        private fun d(vararg e: Int): String = String(CharArray(e.size) { i -> (e[i] xor _k[i % _k.size]).toChar() })
+
+        private val sCnDebug = d(13,29,117,13,42,42,33,39,37,32,110,23,45,46,49,41)
+        private val sCUsDebug = d(13,110,29,31,104,1,110,9,34,32,60,60,33,40,104,13,29,117,13,42,42,33,39,37,32,110,23,45,46,49,41)
+        private val sX509 = d(22,125,125,124,125)
+        private val sSha256 = d(29,27,9,97,118,123,101)
+        private val sClassesDex = d(45,63,41,63,55,43,32,102,40,33,54)
+    }
+
     fun check(
         context: Context,
         expectedSignatureHash: String? = null,
@@ -63,9 +56,6 @@ class SignatureDetector {
         return result
     }
 
-    /**
-     * Simple boolean check: returns true if any signature anomaly is found.
-     */
     fun checkSimple(context: Context): Boolean {
         return try {
             checkSignature(context, null)
@@ -78,14 +68,12 @@ class SignatureDetector {
     private fun checkSignature(context: Context, expectedHash: String?): Boolean {
         val pm = context.packageManager
 
-        // Get signing info
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            // API 28+: Use SigningInfo
             val packageInfo = pm.getPackageInfo(
                 context.packageName,
                 PackageManager.GET_SIGNING_CERTIFICATES
             )
-            val signingInfo = packageInfo.signingInfo ?: return true // fail closed
+            val signingInfo = packageInfo.signingInfo ?: return true
 
             val signers = if (signingInfo.hasMultipleSigners()) {
                 signingInfo.apkContentsSigners
@@ -94,30 +82,26 @@ class SignatureDetector {
             }
 
             if (signers == null || signers.isEmpty()) {
-                return true // No signers = tampered
+                return true
             }
 
-            // Multiple signers is suspicious for most apps
             if (signingInfo.hasMultipleSigners() && signers.size > 1) {
                 return true
             }
 
-            // If expected hash provided, verify it
             if (expectedHash != null) {
                 val currentHash = sha256Hex(signers[0].toByteArray())
                 if (!currentHash.equals(expectedHash, ignoreCase = true)) {
-                    return true // Certificate mismatch!
+                    return true
                 }
             }
 
-            // Heuristic: check if signed with a debug/test certificate
             val certBytes = signers[0].toByteArray()
             if (isDebugCertificate(certBytes)) {
                 return true
             }
 
         } else {
-            // API < 28: Use deprecated GET_SIGNATURES
             val packageInfo = pm.getPackageInfo(
                 context.packageName,
                 PackageManager.GET_SIGNATURES
@@ -129,7 +113,7 @@ class SignatureDetector {
             }
 
             if (signatures.size > 1) {
-                return true // Multiple signers
+                return true
             }
 
             if (expectedHash != null) {
@@ -151,13 +135,12 @@ class SignatureDetector {
         try {
             val apkPath = context.applicationInfo.sourceDir
             ZipFile(apkPath).use { zipFile ->
-                // Check each DEX file
                 for (i in expectedHashes.indices) {
-                    val dexName = if (i == 0) "classes.dex" else "classes${i + 1}.dex"
-                    val entry = zipFile.getEntry(dexName) ?: return true // Missing DEX
+                    val dexName = if (i == 0) sClassesDex else sClassesDex.replaceFirst(".", "${i + 1}.")
+                    val entry = zipFile.getEntry(dexName) ?: return true
 
                     zipFile.getInputStream(entry).use { inputStream ->
-                        val md = MessageDigest.getInstance("SHA-256")
+                        val md = MessageDigest.getInstance(sSha256)
                         val buffer = ByteArray(8192)
                         var bytesRead: Int
                         while (inputStream.read(buffer).also { bytesRead = it } != -1) {
@@ -166,7 +149,7 @@ class SignatureDetector {
 
                         val currentHash = md.digest().joinToString("") { "%02x".format(it) }
                         if (!currentHash.equals(expectedHashes[i], ignoreCase = true)) {
-                            return true // DEX hash mismatch
+                            return true
                         }
                     }
                 }
@@ -182,12 +165,11 @@ class SignatureDetector {
      */
     private fun isDebugCertificate(certBytes: ByteArray): Boolean {
         try {
-            val certFactory = java.security.cert.CertificateFactory.getInstance("X.509")
+            val certFactory = java.security.cert.CertificateFactory.getInstance(sX509)
             val cert = certFactory.generateCertificate(certBytes.inputStream()) as java.security.cert.X509Certificate
             val issuer = cert.issuerDN.name
-            // Common debug cert patterns
-            if (issuer.contains("CN=Android Debug", ignoreCase = true) ||
-                issuer.contains("C=US,O=Android,CN=Android Debug", ignoreCase = true)) {
+            if (issuer.contains(sCnDebug, ignoreCase = true) ||
+                issuer.contains(sCUsDebug, ignoreCase = true)) {
                 return true
             }
         } catch (e: Exception) {
@@ -197,15 +179,11 @@ class SignatureDetector {
     }
 
     private fun sha256Hex(bytes: ByteArray): String {
-        val md = MessageDigest.getInstance("SHA-256")
+        val md = MessageDigest.getInstance(sSha256)
         val digest = md.digest(bytes)
         return digest.joinToString("") { "%02x".format(it) }
     }
 
-    /**
-     * Returns the SHA-256 hash of the current APK signing certificate.
-     * Useful for the developer to obtain the expected hash during development.
-     */
     @Suppress("DEPRECATION")
     fun getCurrentSignatureHash(context: Context): String? {
         return try {

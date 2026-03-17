@@ -34,5 +34,13 @@ target_include_directories(${PLUGIN_NAME} INTERFACE
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
 target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
 
+# Build-level security hardening
+target_compile_options(${PLUGIN_NAME} PRIVATE
+  $<$<CONFIG:Release>:-O2 -fvisibility=hidden -ffunction-sections -fdata-sections>
+)
+target_link_options(${PLUGIN_NAME} PRIVATE
+  $<$<CONFIG:Release>:-Wl,--gc-sections -Wl,--strip-all>
+)
+
 # List of absolute paths to libraries that should be bundled with the plugin
 set(flutter_neo_shield_bundled_libraries "" PARENT_SCOPE)

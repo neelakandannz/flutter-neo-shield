@@ -1,15 +1,27 @@
 import Foundation
 
 /// Detects code signature tampering and sideloading on iOS.
-///
-/// When an attacker decrypts an IPA, modifies it, and re-signs with
-/// a different certificate, the code signature changes. This detector
-/// verifies multiple integrity signals.
-///
-/// Named SignatureDetector_P0 to avoid collision with future naming.
 public class SignatureDetectorP0 {
 
-    /// Returns true if code signature anomalies are detected.
+    private static let _k: [Int] = [0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22]
+    private static func d(_ e: [Int]) -> String {
+        String(e.enumerated().map { i, v in Character(UnicodeScalar(v ^ _k[i % _k.count])!) })
+    }
+
+    // Encoded strings
+    private static let sCodeSignature = d([17,16,39,40,33,29,58,47,34,37,58,38,58,41])
+    private static let sCodeResources = d([13,60,44,41,22,43,32,39,57,54,45,54,59])
+    private static let sMobileProvision = d([43,62,42,41,32,42,54,44,98,41,33,49,33,32,33,62,33,39,58,45,61,58,39,34])
+    private static let sSandboxReceipt = d([61,50,38,40,38,33,43,26,41,39,43,58,56,56])
+    private static let sIPhoneDist = d([39,3,32,35,42,43,115,12,37,55,58,33,33,46,49,58,58,39,34,126,110,58,24,36,43,32,54,104,8,45,61,39,58,37,38,59,39,33,35,42])
+    private static let sGetTaskAllow1 = d([41,54,60,97,48,47,32,35,97,37,34,63,39,59,120,97,56,45,53,122,68,90,116,56,54,59,54,103,114])
+    private static let sGetTaskAllow2 = d([41,54,60,97,48,47,32,35,97,37,34,63,39,59,120,97,56,45,53,122,68,90,65,112,48,60,38,45,99,122])
+    private static let sGetTaskAllowKey = d([41,54,60,97,48,47,32,35,97,37,34,63,39,59,120,97,56,45,53,122])
+    private static let sTrueTag = d([114,39,58,57,33,97,109])
+    private static let sDyldInsertLibs = d([10,10,4,8,27,7,29,27,9,22,26,12,4,5,6,28,18,26,5,1,29])
+    private static let sDyldLibPath = d([10,10,4,8,27,2,26,10,30,5,28,10,23,28,5,26,27])
+    private static let sDyldFwPath = d([10,10,4,8,27,8,1,9,1,1,25,28,26,7,27,30,18,28,4])
+
     public static func check() -> Bool {
         return checkBundleIntegrity() ||
                checkMobileProvision() ||
@@ -17,19 +29,12 @@ public class SignatureDetectorP0 {
                checkDYLDEnvironment()
     }
 
-    /// Verifies the app bundle hasn't been modified.
-    ///
-    /// After repackaging, the Info.plist CFBundleIdentifier or
-    /// executable name may differ from what was compiled.
     private static func checkBundleIntegrity() -> Bool {
-        // Check if _CodeSignature directory exists and is intact
         let bundlePath = Bundle.main.bundlePath
-        let codeSignPath = bundlePath + "/_CodeSignature"
-        let codeResPath = codeSignPath + "/CodeResources"
+        let codeSignPath = bundlePath + "/" + sCodeSignature
+        let codeResPath = codeSignPath + "/" + sCodeResources
 
-        // Missing CodeResources means tampered or unsigned
         if !FileManager.default.fileExists(atPath: codeResPath) {
-            // On simulator this doesn't exist, so check if we're on simulator
             #if targetEnvironment(simulator)
             return false
             #else
@@ -37,7 +42,6 @@ public class SignatureDetectorP0 {
             #endif
         }
 
-        // Verify the CodeResources plist is parseable (corrupted = tampered)
         guard let data = FileManager.default.contents(atPath: codeResPath),
               let _ = try? PropertyListSerialization.propertyList(
                   from: data,
@@ -54,29 +58,17 @@ public class SignatureDetectorP0 {
         return false
     }
 
-    /// Checks mobile provision for suspicious indicators.
-    ///
-    /// Re-signed apps have a different provisioning profile.
-    /// We check for the existence and basic structure.
     private static func checkMobileProvision() -> Bool {
-        let provisionPath = Bundle.main.bundlePath + "/embedded.mobileprovision"
+        let provisionPath = Bundle.main.bundlePath + "/" + sMobileProvision
 
-        // On the App Store, mobileprovision is stripped.
-        // Its presence on a non-TestFlight build is suspicious.
         let isTestFlight = Bundle.main.appStoreReceiptURL?
-            .lastPathComponent == "sandboxReceipt"
+            .lastPathComponent == sSandboxReceipt
 
         if FileManager.default.fileExists(atPath: provisionPath) {
-            // Read provision to check for suspicious Team IDs
             if let data = FileManager.default.contents(atPath: provisionPath) {
                 let content = String(data: data, encoding: .ascii) ?? ""
 
-                // Look for known re-signing tools markers
-                let suspiciousMarkers = [
-                    "iPhone Distribution: iPhone Distribution",
-                    "get-task-allow</key>\n\t<true/>",
-                    "get-task-allow</key>\n\t\t<true/>"
-                ]
+                let suspiciousMarkers = [sIPhoneDist, sGetTaskAllow1, sGetTaskAllow2]
 
                 for marker in suspiciousMarkers {
                     if content.contains(marker) {
@@ -85,10 +77,7 @@ public class SignatureDetectorP0 {
                 }
             }
 
-            // If not TestFlight and has mobileprovision, it's sideloaded
             if !isTestFlight {
-                // This is already handled by IntegrityDetector,
-                // but we add get-task-allow check as extra signal
                 return false
             }
         }
@@ -96,13 +85,8 @@ public class SignatureDetectorP0 {
         return false
     }
 
-    /// Checks for get-task-allow entitlement in production.
-    ///
-    /// This entitlement allows debugging. In production App Store builds,
-    /// it should be false. Re-signed apps often have it set to true.
     private static func checkEntitlements() -> Bool {
-        // Check for get-task-allow via embedded provision
-        let provisionPath = Bundle.main.bundlePath + "/embedded.mobileprovision"
+        let provisionPath = Bundle.main.bundlePath + "/" + sMobileProvision
         guard FileManager.default.fileExists(atPath: provisionPath),
               let data = FileManager.default.contents(atPath: provisionPath) else {
             return false
@@ -110,13 +94,11 @@ public class SignatureDetectorP0 {
 
         let content = String(data: data, encoding: .ascii) ?? ""
 
-        // If get-task-allow is true, debugging is allowed (suspicious in production)
-        if content.contains("get-task-allow</key>") {
-            // Find the value after the key
-            if let range = content.range(of: "get-task-allow</key>") {
+        if content.contains(sGetTaskAllowKey) {
+            if let range = content.range(of: sGetTaskAllowKey) {
                 let after = content[range.upperBound...]
                 let trimmed = after.trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmed.hasPrefix("<true/>") {
+                if trimmed.hasPrefix(sTrueTag) {
                     return true
                 }
             }
@@ -125,25 +107,18 @@ public class SignatureDetectorP0 {
         return false
     }
 
-    /// Checks for DYLD_INSERT_LIBRARIES environment variable.
-    ///
-    /// This is used to inject dylibs into the process, commonly used
-    /// by reverse engineering tools on jailbroken devices.
     private static func checkDYLDEnvironment() -> Bool {
         let env = ProcessInfo.processInfo.environment
 
-        // DYLD_INSERT_LIBRARIES is the primary injection vector
-        if env["DYLD_INSERT_LIBRARIES"] != nil {
+        if env[sDyldInsertLibs] != nil {
             return true
         }
 
-        // DYLD_LIBRARY_PATH can redirect library loads
-        if env["DYLD_LIBRARY_PATH"] != nil {
+        if env[sDyldLibPath] != nil {
             return true
         }
 
-        // DYLD_FRAMEWORK_PATH can redirect framework loads
-        if env["DYLD_FRAMEWORK_PATH"] != nil {
+        if env[sDyldFwPath] != nil {
             return true
         }
 

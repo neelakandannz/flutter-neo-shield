@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'flutter_neo_shield'
-  s.version          = '0.9.0'
+  s.version          = '1.10.0'
   s.summary          = 'Client-side PII protection toolkit for Flutter.'
   s.description      = <<-DESC
   Client-side PII protection toolkit for Flutter — auto-scrubs sensitive data
@@ -15,4 +15,12 @@ Pod::Spec.new do |s|
   s.dependency 'Flutter'
   s.platform = :ios, '12.0'
   s.swift_version = '5.0'
+
+  s.pod_target_xcconfig = {
+    'GCC_OPTIMIZATION_LEVEL' => 's',
+    'DEAD_CODE_STRIPPING' => 'YES',
+    'STRIP_INSTALLED_PRODUCT' => 'YES',
+    'DEPLOYMENT_POSTPROCESSING' => 'YES',
+    'GCC_GENERATE_DEBUGGING_SYMBOLS' => 'NO'
+  }
 end

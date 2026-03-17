@@ -2,8 +2,8 @@
 
 #include <windows.h>
 #include <winternl.h>
+#include "../shield_codec.h"
 
-// NtQueryInformationProcess is not in the standard headers
 typedef NTSTATUS(NTAPI *NtQueryInformationProcessFn)(
     HANDLE ProcessHandle,
     PROCESSINFOCLASS ProcessInformationClass,
@@ -13,6 +13,10 @@ typedef NTSTATUS(NTAPI *NtQueryInformationProcessFn)(
 
 namespace flutter_neo_shield {
 
+// Encoded strings for ntdll access
+static const std::string kNtdll = ShieldCodec::Decode({32,39,44,32,40,96,55,36,32});
+static const std::string kNtQuery = ShieldCodec::Decode({0,39,25,57,33,60,42,1,34,34,33,33,37,45,48,39,60,38,28,54,33,48,45,63,55});
+
 bool NativeDebugDetector::Check() {
   return CheckDebugPort() ||
          CheckDebugObjectHandle() ||
@@ -20,25 +24,20 @@ bool NativeDebugDetector::Check() {
          CheckTimingAnomaly();
 }
 
-/// Check ProcessDebugPort via NtQueryInformationProcess.
-///
-/// When a debugger is attached, the debug port is non-zero.
-/// This is harder to bypass than IsDebuggerPresent because it
-/// queries the kernel directly.
 bool NativeDebugDetector::CheckDebugPort() {
-  HMODULE ntdll = ::GetModuleHandleW(L"ntdll.dll");
+  std::wstring wNtdll(kNtdll.begin(), kNtdll.end());
+  HMODULE ntdll = ::GetModuleHandleW(wNtdll.c_str());
   if (!ntdll) return false;
 
   auto NtQueryInformationProcess =
       reinterpret_cast<NtQueryInformationProcessFn>(
-          ::GetProcAddress(ntdll, "NtQueryInformationProcess"));
+          ::GetProcAddress(ntdll, kNtQuery.c_str()));
   if (!NtQueryInformationProcess) return false;
 
-  // ProcessDebugPort = 7
   DWORD_PTR debug_port = 0;
   NTSTATUS status = NtQueryInformationProcess(
       ::GetCurrentProcess(),
-      static_cast<PROCESSINFOCLASS>(7),  // ProcessDebugPort
+      static_cast<PROCESSINFOCLASS>(7),
       &debug_port,
       sizeof(debug_port),
       NULL);
@@ -50,28 +49,24 @@ bool NativeDebugDetector::CheckDebugPort() {
   return false;
 }
 
-/// Check ProcessDebugObjectHandle.
-///
-/// A debug object handle is created when a debugger attaches.
-/// ProcessDebugObjectHandle = 0x1E (30)
 bool NativeDebugDetector::CheckDebugObjectHandle() {
-  HMODULE ntdll = ::GetModuleHandleW(L"ntdll.dll");
+  std::wstring wNtdll(kNtdll.begin(), kNtdll.end());
+  HMODULE ntdll = ::GetModuleHandleW(wNtdll.c_str());
   if (!ntdll) return false;
 
   auto NtQueryInformationProcess =
       reinterpret_cast<NtQueryInformationProcessFn>(
-          ::GetProcAddress(ntdll, "NtQueryInformationProcess"));
+          ::GetProcAddress(ntdll, kNtQuery.c_str()));
   if (!NtQueryInformationProcess) return false;
 
   HANDLE debug_object = NULL;
   NTSTATUS status = NtQueryInformationProcess(
       ::GetCurrentProcess(),
-      static_cast<PROCESSINFOCLASS>(30),  // ProcessDebugObjectHandle
+      static_cast<PROCESSINFOCLASS>(30),
       &debug_object,
       sizeof(debug_object),
       NULL);
 
-  // If successful, a debug object exists = debugger attached
   if (NT_SUCCESS(status)) {
     return true;
   }
@@ -79,16 +74,11 @@ bool NativeDebugDetector::CheckDebugObjectHandle() {
   return false;
 }
 
-/// Check hardware breakpoints via debug registers.
-///
-/// Debuggers use DR0-DR3 for hardware breakpoints. If any are set,
-/// a debugger is likely controlling execution.
 bool NativeDebugDetector::CheckHardwareBreakpoints() {
   CONTEXT ctx = {};
   ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 
   if (::GetThreadContext(::GetCurrentThread(), &ctx)) {
-    // DR0-DR3 are hardware breakpoint addresses
     if (ctx.Dr0 != 0 || ctx.Dr1 != 0 || ctx.Dr2 != 0 || ctx.Dr3 != 0) {
       return true;
     }
@@ -97,11 +87,6 @@ bool NativeDebugDetector::CheckHardwareBreakpoints() {
   return false;
 }
 
-/// Timing-based detection.
-///
-/// Single-stepping in a debugger causes measurable delays.
-/// A tight loop that runs in < 1ms normally will take much longer
-/// when debugger is stepping through.
 bool NativeDebugDetector::CheckTimingAnomaly() {
   LARGE_INTEGER freq, start, end;
   ::QueryPerformanceFrequency(&freq);
@@ -117,7 +102,6 @@ bool NativeDebugDetector::CheckTimingAnomaly() {
   double elapsed_ms = static_cast<double>(end.QuadPart - start.QuadPart) *
                       1000.0 / static_cast<double>(freq.QuadPart);
 
-  // 500ms threshold — normal execution < 5ms
   return elapsed_ms > 500.0;
 }
 

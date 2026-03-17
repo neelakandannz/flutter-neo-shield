@@ -469,7 +469,7 @@ FlutterNeoShield.screen.onRecordingStateChanged.listen((event) {
 
 ```yaml
 dependencies:
-  flutter_neo_shield: ^1.9.0
+  flutter_neo_shield: ^1.10.0
 ```
 
 **Step 2:** Run:
@@ -714,6 +714,42 @@ See the [Dio integration file](https://github.com/neelakandanz/flutter-neo-shiel
 | Web | Yes | Yes | Yes (Dart wipe) | Yes | Yes (JS heuristic) | Yes (CSS-based) |
 
 > **Desktop & Web RASP** (v1.9.0): All 10 RASP checks now run in native code on every platform. Desktop uses platform-specific APIs (sysctl, ptrace, IOKit on macOS; NtQueryInformationProcess, WinVerifyTrust on Windows; /proc filesystem on Linux). Web uses browser JavaScript heuristics via `dart:js_interop` + `package:web` — fully WASM-compatible.
+
+---
+
+## Anti-Reverse-Engineering Hardening (v1.10.0)
+
+Starting from v1.10.0, the plugin includes multiple layers of protection against reverse engineering:
+
+### Plugin-Level Hardening (built-in, automatic)
+
+These protections are built into the plugin binary itself — no configuration needed:
+
+| Layer | What it does | Platforms |
+|-------|-------------|-----------|
+| **XOR-Encoded Strings** | All MethodChannel names, method names, and detection strings are XOR-encoded at rest and decoded only at runtime. `strings libapp.so` reveals nothing useful. | All 6 platforms |
+| **ProGuard/R8 Obfuscation** | Plugin ships with ProGuard rules that obfuscate all internal detector classes while keeping only the public API entry point. | Android |
+| **Symbol Stripping** | Native binaries are compiled with optimization (`-Os`/`-O2`) and stripped of debug symbols and unused code. | iOS, macOS, Windows, Linux |
+| **Self-Integrity Checks** | Detects method swizzling, DYLD injection, classloader tampering, and hook framework presence on the plugin itself. | Android, iOS |
+| **Fail-Closed Design** | All detector `catch` blocks return `true` (threat detected) instead of `false`. If an attacker causes an exception, the check fails safe. | All 6 platforms |
+| **Cross-Detector Validation** | If self-integrity check fails, individual detector results are overridden to "detected" — preventing selective hook bypasses. | Android, iOS |
+
+### App-Level Hardening (recommended for your app)
+
+For maximum protection, build your app with Dart obfuscation enabled:
+
+```bash
+# For Google Play (AAB):
+flutter build appbundle --obfuscate --split-debug-info=build/debug-info
+
+# For direct APK distribution:
+flutter build apk --obfuscate --split-debug-info=build/debug-info
+
+# For iOS:
+flutter build ipa --obfuscate --split-debug-info=build/debug-info
+```
+
+> **Note:** `--obfuscate` renames Dart classes, methods, and fields to meaningless names (e.g., `RaspShield.checkFrida()` becomes `aB.c()`). It does NOT encrypt string literals — that's what the plugin's built-in XOR encoding and String Shield handle. The `--split-debug-info` flag saves the symbol map so you can still read crash reports.
 
 ---
 

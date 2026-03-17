@@ -1,32 +1,34 @@
 import Foundation
 
-/// Detects if System Integrity Protection (SIP) is disabled on macOS.
-///
-/// SIP (rootless) is macOS's equivalent of root/jailbreak protection.
-/// When SIP is disabled, the system is vulnerable to kernel extensions,
-/// unsigned code injection, and file system tampering.
-///
-/// Also checks if the process is running with elevated (root) privileges.
 public class SIPDetector {
+
+    private static let _k: [Int] = [0x32 + 0x1C, 0x41 + 0x12, 0x24 + 0x24, 0x3E + 0x0E, 0x22 + 0x22]
+    private static func d(_ e: [Int]) -> String {
+        String(e.enumerated().map { i, v in Character(UnicodeScalar(v ^ _k[i % _k.count])!) })
+    }
+
+    private static let sCsrutil = d([97,38,59,62,107,44,58,38,99,39,61,33,61,56,45,34])
+    private static let sStatus = d([61,39,41,56,49,61])
+    private static let sDisabled = d([42,58,59,45,38,34,54,44])
+    private static let protectedPaths: [String] = [
+        d([97,0,49,63,48,43,62,103,0,45,44,33,41,62,61]),
+        d([97,38,59,62,107,34,58,42]),
+        d([97,38,59,62,107,44,58,38]),
+    ]
+    private static let sSipTest = d([97,125,38,41,43,17,32,32,37,33,34,55,23,63,45,62,12,60,41,55,58])
+
     public static func check() -> Bool {
         return checkRootPrivileges() || checkSIPDisabled() || checkSuspiciousPaths()
     }
 
-    /// Check if the current process is running as root.
     private static func checkRootPrivileges() -> Bool {
         return getuid() == 0 || geteuid() == 0
     }
 
-    /// Check if SIP is disabled by running csrutil status.
-    ///
-    /// When SIP is disabled, `csrutil status` outputs:
-    ///   "System Integrity Protection status: disabled."
-    /// When enabled:
-    ///   "System Integrity Protection status: enabled."
     private static func checkSIPDisabled() -> Bool {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/csrutil")
-        process.arguments = ["status"]
+        process.executableURL = URL(fileURLWithPath: sCsrutil)
+        process.arguments = [sStatus]
 
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -39,30 +41,19 @@ public class SIPDetector {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             let output = String(data: data, encoding: .utf8) ?? ""
 
-            // "disabled" in the output means SIP is off
-            if output.lowercased().contains("disabled") {
+            if output.lowercased().contains(sDisabled) {
                 return true
             }
         } catch {
-            // If we can't run csrutil, fail-closed
             return true
         }
 
         return false
     }
 
-    /// Check for paths that should not be writable with SIP enabled.
     private static func checkSuspiciousPaths() -> Bool {
-        // These directories are protected by SIP — if writable, SIP may be off
-        let protectedPaths = [
-            "/System/Library",
-            "/usr/lib",
-            "/usr/bin"
-        ]
-
-        let testFile = "/.neo_shield_sip_test"
         for base in protectedPaths {
-            let path = base + testFile
+            let path = base + sSipTest
             let fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0o644)
             if fd != -1 {
                 close(fd)

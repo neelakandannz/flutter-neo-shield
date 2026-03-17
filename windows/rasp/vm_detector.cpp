@@ -4,29 +4,34 @@
 #include <intrin.h>
 #include <string>
 #include <algorithm>
+#include "../shield_codec.h"
 
 namespace flutter_neo_shield {
+
+// VM firmware strings (decoded at first use)
+static const std::string kVmStrings[] = {
+  ShieldCodec::Decode({56,62,63,45,54,43}),         // vmware
+  ShieldCodec::Decode({56,58,58,56,49,47,63,42,35,60}), // virtualbox
+  ShieldCodec::Decode({56,49,39,52}),                 // vbox
+  ShieldCodec::Decode({63,54,37,57}),                 // qemu
+  ShieldCodec::Decode({62,50,58,45,40,34,54,36,63}), // parallels
+  ShieldCodec::Decode({38,42,56,41,54,99,37}),       // hyper-v
+  ShieldCodec::Decode({54,54,38}),                     // xen
+  ShieldCodec::Decode({44,59,49,58,33}),              // bhyve
+  ShieldCodec::Decode({37,37,37}),                     // kvm
+};
+static const size_t kVmStringsCount = sizeof(kVmStrings) / sizeof(kVmStrings[0]);
 
 bool VMDetector::Check() {
   return CheckCPUID() || CheckRegistry() || CheckSystemFirmware();
 }
 
-/// Check CPUID hypervisor present bit (bit 31 of ECX from CPUID leaf 1).
-///
-/// All major hypervisors set this bit: VMware, VirtualBox, Hyper-V, KVM, Xen.
-/// On bare metal, this bit is 0.
 bool VMDetector::CheckCPUID() {
   int cpuInfo[4] = {0};
   __cpuid(cpuInfo, 1);
-
-  // Bit 31 of ECX = hypervisor present
   return (cpuInfo[2] & (1 << 31)) != 0;
 }
 
-/// Check registry for VM-specific service keys.
-///
-/// VMware, VirtualBox, Hyper-V, and Parallels install services
-/// that leave registry footprints.
 bool VMDetector::CheckRegistry() {
   struct RegistryCheck {
     HKEY root;
@@ -60,12 +65,7 @@ bool VMDetector::CheckRegistry() {
   return false;
 }
 
-/// Check system firmware table for VM identifiers.
-///
-/// The SMBIOS firmware table contains manufacturer and product strings
-/// that identify VMs: "VMware", "VirtualBox", "QEMU", "Microsoft Corporation" (Hyper-V).
 bool VMDetector::CheckSystemFirmware() {
-  // Get SMBIOS firmware table size
   DWORD size = ::GetSystemFirmwareTable('RSMB', 0, NULL, 0);
   if (size == 0) return false;
 
@@ -73,19 +73,13 @@ bool VMDetector::CheckSystemFirmware() {
   DWORD written = ::GetSystemFirmwareTable('RSMB', 0, buffer.data(), size);
   if (written == 0) return false;
 
-  // Convert to string and search for VM identifiers
   std::string firmware(reinterpret_cast<char *>(buffer.data()), written);
   std::string lower_firmware = firmware;
   std::transform(lower_firmware.begin(), lower_firmware.end(),
                  lower_firmware.begin(), ::tolower);
 
-  const char *vm_strings[] = {
-    "vmware", "virtualbox", "vbox", "qemu", "parallels",
-    "hyper-v", "xen", "bhyve", "kvm",
-  };
-
-  for (const auto &vm_str : vm_strings) {
-    if (lower_firmware.find(vm_str) != std::string::npos) {
+  for (size_t i = 0; i < kVmStringsCount; i++) {
+    if (lower_firmware.find(kVmStrings[i]) != std::string::npos) {
       return true;
     }
   }

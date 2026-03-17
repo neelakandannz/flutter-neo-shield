@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:web/web.dart' as web;
 
+import 'src/platform/shield_codec.dart';
+
 /// Web platform implementation of flutter_neo_shield.
 ///
 /// Uses `package:web` + `dart:js_interop` for full WASM compatibility.
@@ -26,10 +28,33 @@ import 'package:web/web.dart' as web;
 /// Memory operations use Dart-side wipe (no native secure memory on web).
 class FlutterNeoShieldWeb {
   /// Registers all method channel handlers for RASP, screen, and memory.
+  // Decoded method names (cached once at class init).
+  static final String _mDebugger = ShieldCodec.d(ShieldCodec.mCheckDebugger);
+  static final String _mRoot = ShieldCodec.d(ShieldCodec.mCheckRoot);
+  static final String _mEmulator = ShieldCodec.d(ShieldCodec.mCheckEmulator);
+  static final String _mFrida = ShieldCodec.d(ShieldCodec.mCheckFrida);
+  static final String _mHooks = ShieldCodec.d(ShieldCodec.mCheckHooks);
+  static final String _mIntegrity = ShieldCodec.d(ShieldCodec.mCheckIntegrity);
+  static final String _mDevMode = ShieldCodec.d(ShieldCodec.mCheckDeveloperMode);
+  static final String _mSignature = ShieldCodec.d(ShieldCodec.mCheckSignature);
+  static final String _mNativeDbg = ShieldCodec.d(ShieldCodec.mCheckNativeDebug);
+  static final String _mNetwork = ShieldCodec.d(ShieldCodec.mCheckNetworkThreats);
+  static final String _mEnableProt = ShieldCodec.d(ShieldCodec.mEnableScreenProtection);
+  static final String _mDisableProt = ShieldCodec.d(ShieldCodec.mDisableScreenProtection);
+  static final String _mIsActive = ShieldCodec.d(ShieldCodec.mIsScreenProtectionActive);
+  static final String _mEnableGuard = ShieldCodec.d(ShieldCodec.mEnableAppSwitcherGuard);
+  static final String _mDisableGuard = ShieldCodec.d(ShieldCodec.mDisableAppSwitcherGuard);
+  static final String _mIsRecorded = ShieldCodec.d(ShieldCodec.mIsScreenBeingRecorded);
+  static final String _mAllocate = ShieldCodec.d(ShieldCodec.mAllocateSecure);
+  static final String _mRead = ShieldCodec.d(ShieldCodec.mReadSecure);
+  static final String _mWipe = ShieldCodec.d(ShieldCodec.mWipeSecure);
+  static final String _mWipeAll = ShieldCodec.d(ShieldCodec.mWipeAll);
+
+  /// Registers all method channel handlers for RASP, screen, and memory.
   static void registerWith(Registrar registrar) {
     // RASP channel
     final raspChannel = MethodChannel(
-      'com.neelakandan.flutter_neo_shield/rasp',
+      ShieldCodec.d(ShieldCodec.chRasp),
       const StandardMethodCodec(),
       registrar,
     );
@@ -37,7 +62,7 @@ class FlutterNeoShieldWeb {
 
     // Screen channel
     final screenChannel = MethodChannel(
-      'com.neelakandan.flutter_neo_shield/screen',
+      ShieldCodec.d(ShieldCodec.chScreen),
       const StandardMethodCodec(),
       registrar,
     );
@@ -45,7 +70,7 @@ class FlutterNeoShieldWeb {
 
     // Memory channel
     final memoryChannel = MethodChannel(
-      'com.neelakandan.flutter_neo_shield/memory',
+      ShieldCodec.d(ShieldCodec.chMemory),
       const StandardMethodCodec(),
       registrar,
     );
@@ -57,33 +82,21 @@ class FlutterNeoShieldWeb {
   // ---------------------------------------------------------------------------
 
   static Future<dynamic> _handleRaspCall(MethodCall call) async {
-    switch (call.method) {
-      case 'checkDebugger':
-        return _checkDebugger();
-      case 'checkRoot':
-        return false; // No root/jailbreak concept on web
-      case 'checkEmulator':
-        return _checkEmulator();
-      case 'checkFrida':
-        return false; // Frida doesn't target browsers
-      case 'checkHooks':
-        return _checkHooks();
-      case 'checkIntegrity':
-        return _checkIntegrity();
-      case 'checkDeveloperMode':
-        return _checkDevTools();
-      case 'checkSignature':
-        return _checkSignature();
-      case 'checkNativeDebug':
-        return _checkNativeDebug();
-      case 'checkNetworkThreats':
-        return _checkNetworkThreats();
-      default:
-        throw PlatformException(
-          code: 'UNIMPLEMENTED',
-          message: '${call.method} is not implemented on web',
-        );
-    }
+    final m = call.method;
+    if (m == _mDebugger) return _checkDebugger();
+    if (m == _mRoot) return false;
+    if (m == _mEmulator) return _checkEmulator();
+    if (m == _mFrida) return false;
+    if (m == _mHooks) return _checkHooks();
+    if (m == _mIntegrity) return _checkIntegrity();
+    if (m == _mDevMode) return _checkDevTools();
+    if (m == _mSignature) return _checkSignature();
+    if (m == _mNativeDbg) return _checkNativeDebug();
+    if (m == _mNetwork) return _checkNetworkThreats();
+    throw PlatformException(
+      code: 'UNIMPLEMENTED',
+      message: '${call.method} is not implemented on web',
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -93,25 +106,17 @@ class FlutterNeoShieldWeb {
   static bool _screenProtectionActive = false;
 
   static Future<dynamic> _handleScreenCall(MethodCall call) async {
-    switch (call.method) {
-      case 'enableScreenProtection':
-        return _enableScreenProtection();
-      case 'disableScreenProtection':
-        return _disableScreenProtection();
-      case 'isScreenProtectionActive':
-        return _screenProtectionActive;
-      case 'enableAppSwitcherGuard':
-        return _enableScreenProtection();
-      case 'disableAppSwitcherGuard':
-        return _disableScreenProtection();
-      case 'isScreenBeingRecorded':
-        return false; // Screen Capture API is permission-gated
-      default:
-        throw PlatformException(
-          code: 'UNIMPLEMENTED',
-          message: '${call.method} is not implemented on web',
-        );
-    }
+    final m = call.method;
+    if (m == _mEnableProt) return _enableScreenProtection();
+    if (m == _mDisableProt) return _disableScreenProtection();
+    if (m == _mIsActive) return _screenProtectionActive;
+    if (m == _mEnableGuard) return _enableScreenProtection();
+    if (m == _mDisableGuard) return _disableScreenProtection();
+    if (m == _mIsRecorded) return false;
+    throw PlatformException(
+      code: 'UNIMPLEMENTED',
+      message: '${call.method} is not implemented on web',
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -121,42 +126,44 @@ class FlutterNeoShieldWeb {
   static final Map<String, List<int>> _secureStore = {};
 
   static Future<dynamic> _handleMemoryCall(MethodCall call) async {
-    switch (call.method) {
-      case 'allocateSecure':
-        final args = call.arguments as Map<dynamic, dynamic>;
-        final id = args['id'] as String;
-        final data = (args['data'] as List<dynamic>).cast<int>();
-        _secureStore[id] = List<int>.from(data);
-        return true;
-      case 'readSecure':
-        final args = call.arguments as Map<dynamic, dynamic>;
-        final id = args['id'] as String;
-        return _secureStore[id];
-      case 'wipeSecure':
-        final args = call.arguments as Map<dynamic, dynamic>;
-        final id = args['id'] as String;
-        final data = _secureStore[id];
-        if (data != null) {
-          for (var i = 0; i < data.length; i++) {
-            data[i] = 0;
-          }
-          _secureStore.remove(id);
-        }
-        return true;
-      case 'wipeAll':
-        for (final entry in _secureStore.values) {
-          for (var i = 0; i < entry.length; i++) {
-            entry[i] = 0;
-          }
-        }
-        _secureStore.clear();
-        return true;
-      default:
-        throw PlatformException(
-          code: 'UNIMPLEMENTED',
-          message: '${call.method} is not implemented on web',
-        );
+    final m = call.method;
+    if (m == _mAllocate) {
+      final args = call.arguments as Map<dynamic, dynamic>;
+      final id = args['id'] as String;
+      final data = (args['data'] as List<dynamic>).cast<int>();
+      _secureStore[id] = List<int>.from(data);
+      return true;
     }
+    if (m == _mRead) {
+      final args = call.arguments as Map<dynamic, dynamic>;
+      final id = args['id'] as String;
+      return _secureStore[id];
+    }
+    if (m == _mWipe) {
+      final args = call.arguments as Map<dynamic, dynamic>;
+      final id = args['id'] as String;
+      final data = _secureStore[id];
+      if (data != null) {
+        for (var i = 0; i < data.length; i++) {
+          data[i] = 0;
+        }
+        _secureStore.remove(id);
+      }
+      return true;
+    }
+    if (m == _mWipeAll) {
+      for (final entry in _secureStore.values) {
+        for (var i = 0; i < entry.length; i++) {
+          entry[i] = 0;
+        }
+      }
+      _secureStore.clear();
+      return true;
+    }
+    throw PlatformException(
+      code: 'UNIMPLEMENTED',
+      message: '${call.method} is not implemented on web',
+    );
   }
 
   // ===========================================================================
