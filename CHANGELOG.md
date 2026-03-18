@@ -1,3 +1,45 @@
+## 1.11.0
+
+### Location Shield — Native-Level Fake Location Detection
+
+New `LocationShield` module with 7-layer defense-in-depth detection of GPS spoofing, mock locations, and location manipulation across all 6 platforms.
+
+#### Detection Layers
+
+1. **Mock Provider Detection** — Platform settings, API flags (`isMock`, developer settings, test providers)
+2. **Spoofing App Detection** — Scans for 30+ known GPS spoofing apps/packages (Android), jailbreak location tweaks/dylibs (iOS)
+3. **Location Hook Detection** — Detects Xposed/Frida hooks on `LocationManager` (Android), Obj-C method swizzling on `CLLocation`/`CLLocationManager` (iOS), ARM64 inline trampolines, PLT/GOT hooks, `/proc/self/maps` analysis
+4. **GPS Signal Anomaly Detection** — GNSS satellite SNR uniformity analysis, constellation diversity check, impossible satellite counts (Android); CLLocation property consistency analysis (iOS)
+5. **Sensor Fusion Correlation** — Cross-correlates GPS movement with accelerometer/gyroscope/barometer/pedometer data; detects physics-violating spoofs where GPS says moving but sensors say stationary
+6. **Temporal Anomaly Detection** — Detects impossible speed (teleportation), altitude impossibility, bearing reversal at speed, GPS/system time drift, coordinate repetition (replay attacks), grid pattern detection
+7. **Environment Integrity Check** — Weighted aggregation of all layers with cross-validation amplification; integrates with existing RASP detectors (root/Frida/hooks amplify location spoof scores)
+
+#### Platform Coverage
+
+* **Android (Kotlin):** Full 7 layers with GNSS callbacks, `/proc` inspection, reflection hook detection, sensor fusion
+* **iOS (Swift):** Full 7 layers with CoreMotion, `dladdr` swizzle detection, ARM64 trampoline scanning, dylib injection scan
+* **macOS (Swift):** 4 layers (mock provider, hook detection, temporal anomaly, integrity)
+* **Windows (C++):** 4 layers (mock provider, spoofing process detection, IAT hook detection, integrity)
+* **Linux (C++):** 4 layers (mock provider, LD_PRELOAD hooks, `/proc/self/maps`, spoofing process detection)
+* **Web/WASM:** Geolocation API override detection, prototype tampering check
+
+#### API
+
+* `LocationShield.instance.checkLocationAuthenticity()` — One-shot 7-layer check returning `LocationVerdict`
+* `LocationShield.instance.monitorLocation()` — Continuous monitoring stream
+* `LocationShield.instance.checkSpoofingApps()` — Check for installed spoofing apps (no location permission needed)
+* `LocationShield.instance.isMockLocationEnabled()` — Check developer settings (no location permission needed)
+* `LocationShield.instance.validateLocation()` — Validate externally-obtained coordinates
+* `LocationShield.instance.fullLocationSecurityScan()` — Combined RASP + Location scan with cross-referencing
+
+#### Anti-Bypass Design
+
+* Native-level checks run below Dart VM — hooking Dart doesn't affect native detectors
+* All channel/method names XOR-encoded (anti-reverse-engineering)
+* Fail-closed design — platform errors default to "threat detected"
+* Cross-detector validation — disabling one layer raises suspicion in others
+* Sensor fusion validates physics — can't fake accelerometer + gyro + barometer + GPS simultaneously
+
 ## 1.10.0
 
 ### Anti-Reverse-Engineering Hardening

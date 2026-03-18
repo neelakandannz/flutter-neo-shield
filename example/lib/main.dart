@@ -7,6 +7,7 @@ import 'screens/memory_shield_demo.dart';
 import 'screens/string_shield_demo.dart';
 import 'screens/rasp_shield_demo.dart';
 import 'screens/screen_shield_demo.dart';
+import 'screens/location_shield_demo.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,13 +70,14 @@ void main() {
 
 /// The flutter_neo_shield demo application.
 ///
-/// Showcases all 6 shield modules with interactive demos:
+/// Showcases all 7 shield modules with interactive demos:
 /// - Log Shield: sanitized logging with PII detection
 /// - Clipboard Shield: auto-clearing clipboard with countdown
 /// - Memory Shield: SecureString/SecureBytes lifecycle management
 /// - String Shield: compile-time obfuscation with runtime stats
 /// - RASP Shield: full security scan (root, debugger, emulator, etc.)
 /// - Screen Shield: screenshot/recording prevention with live toggle
+/// - Location Shield: 7-layer fake GPS/mock location detection
 class FlutterNeoShieldDemoApp extends StatelessWidget {
   /// Creates the demo app.
   const FlutterNeoShieldDemoApp({super.key});
@@ -119,6 +121,7 @@ class _HomePageState extends State<HomePage> {
     StringShieldDemo(),
     RaspShieldDemo(),
     ScreenShieldDemo(),
+    LocationShieldDemo(),
   ];
 
   final _titles = const [
@@ -128,6 +131,7 @@ class _HomePageState extends State<HomePage> {
     'String Shield',
     'RASP Shield',
     'Screen Shield',
+    'Location Shield',
   ];
 
   @override
@@ -173,6 +177,11 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.screenshot_monitor_outlined),
             selectedIcon: Icon(Icons.screenshot_monitor),
             label: 'Screen',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.location_off_outlined),
+            selectedIcon: Icon(Icons.location_off),
+            label: 'Location',
           ),
         ],
       ),

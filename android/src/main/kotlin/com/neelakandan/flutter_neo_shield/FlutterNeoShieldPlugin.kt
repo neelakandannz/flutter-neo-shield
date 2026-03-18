@@ -27,6 +27,8 @@ class FlutterNeoShieldPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private lateinit var raspChannel: MethodChannel
     private lateinit var screenChannel: MethodChannel
     private var screenEventChannel: EventChannel? = null
+    private lateinit var locationChannel: MethodChannel
+    private var locationHandler: com.neelakandan.flutter_neo_shield.location.LocationShieldHandler? = null
     private val secureStorage = HashMap<String, ByteArray>()
     private val debuggerDetector = com.neelakandan.flutter_neo_shield.rasp.DebuggerDetector()
     private var applicationContext: android.content.Context? = null
@@ -46,6 +48,10 @@ class FlutterNeoShieldPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
         screenChannel = MethodChannel(binding.binaryMessenger, ShieldCodec.decode(ShieldCodec.CH_SCREEN))
         screenChannel.setMethodCallHandler(this)
+
+        locationChannel = MethodChannel(binding.binaryMessenger, ShieldCodec.decode(ShieldCodec.CH_LOCATION))
+        locationChannel.setMethodCallHandler(this)
+        locationHandler = com.neelakandan.flutter_neo_shield.location.LocationShieldHandler(binding.applicationContext)
 
         screenEventChannel = EventChannel(binding.binaryMessenger, ShieldCodec.decode(ShieldCodec.CH_SCREEN_EVENTS))
         screenEventChannel?.setStreamHandler(object : EventChannel.StreamHandler {
@@ -206,6 +212,17 @@ class FlutterNeoShieldPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 result.success(recordingDetector.isRecordingOrMirroring(activity))
             }
 
+            // Location Shield — delegated to LocationShieldHandler
+            ShieldCodec.decode(ShieldCodec.M_CHECK_FAKE_LOCATION),
+            ShieldCodec.decode(ShieldCodec.M_CHECK_MOCK_PROVIDER),
+            ShieldCodec.decode(ShieldCodec.M_CHECK_SPOOFING_APPS),
+            ShieldCodec.decode(ShieldCodec.M_CHECK_LOCATION_HOOKS),
+            ShieldCodec.decode(ShieldCodec.M_CHECK_GPS_ANOMALY),
+            ShieldCodec.decode(ShieldCodec.M_CHECK_SENSOR_FUSION),
+            ShieldCodec.decode(ShieldCodec.M_CHECK_TEMPORAL_ANOMALY) -> {
+                locationHandler?.onMethodCall(call, result) ?: result.success(true)
+            }
+
             else -> {
                 result.notImplemented()
             }
@@ -269,6 +286,8 @@ class FlutterNeoShieldPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         channel.setMethodCallHandler(null)
         raspChannel.setMethodCallHandler(null)
         screenChannel.setMethodCallHandler(null)
+        locationChannel.setMethodCallHandler(null)
+        locationHandler = null
         screenEventChannel?.setStreamHandler(null)
     }
 }

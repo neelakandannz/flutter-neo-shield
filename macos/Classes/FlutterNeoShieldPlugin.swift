@@ -13,6 +13,9 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
     private let screenRecordingDetector = ScreenRecordingDetector()
     private var screenEventSink: FlutterEventSink?
 
+    // Location Shield
+    private let locationShieldHandler = LocationShieldHandler()
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let memoryChannel = FlutterMethodChannel(
             name: ShieldCodec.chMemory,
@@ -31,10 +34,16 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
             binaryMessenger: registrar.messenger
         )
 
+        let locationChannel = FlutterMethodChannel(
+            name: ShieldCodec.chLocation,
+            binaryMessenger: registrar.messenger
+        )
+
         let instance = FlutterNeoShieldPlugin()
         registrar.addMethodCallDelegate(instance, channel: memoryChannel)
         registrar.addMethodCallDelegate(instance, channel: raspChannel)
         registrar.addMethodCallDelegate(instance, channel: screenChannel)
+        registrar.addMethodCallDelegate(instance, channel: locationChannel)
         screenEventChannel.setStreamHandler(instance)
     }
 
@@ -128,6 +137,16 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
 
         case ShieldCodec.mIsScreenBeingRecorded:
             result(screenRecordingDetector.isRecording)
+
+        // Location Shield
+        case ShieldCodec.mCheckFakeLocation,
+             ShieldCodec.mCheckMockProvider,
+             ShieldCodec.mCheckSpoofingApps,
+             ShieldCodec.mCheckLocationHooks,
+             ShieldCodec.mCheckGpsAnomaly,
+             ShieldCodec.mCheckSensorFusion,
+             ShieldCodec.mCheckTemporalAnomaly:
+            locationShieldHandler.handle(call, result: result)
 
         default:
             result(FlutterMethodNotImplemented)

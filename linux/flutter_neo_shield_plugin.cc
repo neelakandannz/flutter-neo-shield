@@ -21,6 +21,7 @@
 #include "rasp/network_threat_detector.h"
 #include "screen/screen_protector.h"
 #include "screen/screen_recording_detector.h"
+#include "location/location_shield_handler.h"
 #include "shield_codec.h"
 
 #define FLUTTER_NEO_SHIELD_PLUGIN(obj) \
@@ -32,6 +33,7 @@ struct _FlutterNeoShieldPlugin {
   std::map<std::string, std::vector<uint8_t>>* secure_storage;
   std::mutex* storage_mutex;
   flutter_neo_shield::ScreenProtector* screen_protector;
+  flutter_neo_shield::LocationShieldHandler* location_handler;
 };
 
 G_DEFINE_TYPE(FlutterNeoShieldPlugin, flutter_neo_shield_plugin, g_object_get_type())
@@ -174,6 +176,15 @@ static void handle_method_call(
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(
         fl_value_new_bool(flutter_neo_shield::ScreenRecordingDetector::IsRecording())));
   }
+  // Location Shield
+  else if (self->location_handler) {
+    FlMethodResponse* loc_response = self->location_handler->HandleMethodCall(method, args);
+    if (loc_response) {
+      response = loc_response;
+    } else {
+      response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+    }
+  }
   else {
     response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
   }
@@ -205,6 +216,8 @@ static void flutter_neo_shield_plugin_dispose(GObject* object) {
   self->storage_mutex = nullptr;
   delete self->screen_protector;
   self->screen_protector = nullptr;
+  delete self->location_handler;
+  self->location_handler = nullptr;
 
   G_OBJECT_CLASS(flutter_neo_shield_plugin_parent_class)->dispose(object);
 }
@@ -217,6 +230,7 @@ static void flutter_neo_shield_plugin_init(FlutterNeoShieldPlugin* self) {
   self->secure_storage = new std::map<std::string, std::vector<uint8_t>>();
   self->storage_mutex = new std::mutex();
   self->screen_protector = new flutter_neo_shield::ScreenProtector();
+  self->location_handler = new flutter_neo_shield::LocationShieldHandler();
 }
 
 void flutter_neo_shield_plugin_register_with_registrar(FlPluginRegistrar* registrar) {
@@ -246,6 +260,13 @@ void flutter_neo_shield_plugin_register_with_registrar(FlPluginRegistrar* regist
                             Codec::Decode(Codec::ChannelScreen()).c_str(),
                             FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(screen_channel, method_call_cb,
+                                             g_object_ref(plugin), g_object_unref);
+
+  g_autoptr(FlMethodChannel) location_channel =
+      fl_method_channel_new(fl_plugin_registrar_get_messenger(registrar),
+                            Codec::Decode(Codec::ChannelLocation()).c_str(),
+                            FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(location_channel, method_call_cb,
                                              g_object_ref(plugin), g_object_unref);
 
   g_object_unref(plugin);

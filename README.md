@@ -21,7 +21,7 @@ PII = **Personally Identifiable Information**. Things like:
 
 If any of this data leaks (through logs, clipboard, or memory), it's a security risk.
 
-**flutter_neo_shield has 6 modules to prevent this:**
+**flutter_neo_shield has 7 modules to prevent this:**
 
 | Module | What it does (in one line) |
 |--------|---------------------------|
@@ -31,6 +31,7 @@ If any of this data leaks (through logs, clipboard, or memory), it's a security 
 | **String Shield** | Encrypts string literals at compile time so they can't be extracted from your binary with `strings` |
 | **RASP Shield** | Detects Root, Jailbreak, Debugger, Native Debugger, Emulator, Frida, Developer Mode, Tampering, Signature Repackaging, and Proxy/VPN (MITM) at runtime — native on all 6 platforms |
 | **Screen Shield** | Blocks screenshots, screen recording, and app-switcher thumbnails — native OS-level protection on all 6 platforms |
+| **Location Shield** | 7-layer native-level fake GPS/mock location detection — catches spoofing apps, Xposed/Frida hooks, sensor fusion mismatch, and impossible movement patterns on all 6 platforms |
 
 ---
 
@@ -460,6 +461,61 @@ FlutterNeoShield.screen.onRecordingStateChanged.listen((event) {
 - **Web:** CSS-based (`user-select: none`, print media hiding, right-click/print shortcut blocking). Limited effectiveness against determined attackers.
 
 > **Note:** No software can prevent someone from pointing a camera at their phone screen. Screen Shield blocks all **digital** capture methods.
+
+---
+
+### 7. Location Shield — "Detect Fake GPS / Mock Location"
+
+**The problem:**
+
+Attackers use mock location apps, Xposed modules, Frida scripts, and jailbreak tweaks to fake their GPS coordinates. This breaks location-based features like geofencing, delivery tracking, and fraud prevention.
+
+**The solution:**
+
+Location Shield uses **7 native detection layers** running below the Dart VM where Frida/Xposed can't easily hook:
+
+```dart
+import 'package:flutter_neo_shield/flutter_neo_shield.dart';
+
+// One-shot check — runs all 7 layers
+final verdict = await LocationShield.instance.checkLocationAuthenticity();
+
+if (verdict.isSpoofed) {
+  print('FAKE LOCATION! Confidence: ${verdict.confidence}');
+  print('Methods: ${verdict.detectedMethods}');
+  // e.g., ["mockProvider", "spoofingApp", "sensorFusion"]
+}
+
+// Check for spoofing apps (no location permission needed)
+final apps = await LocationShield.instance.checkSpoofingApps();
+if (apps.detected) {
+  print('Spoofing apps found: ${apps.detectedApps}');
+}
+
+// Full scan combining RASP + Location (highest confidence)
+final fullVerdict = await LocationShield.instance.fullLocationSecurityScan();
+print('Risk level: ${fullVerdict.riskLevel}'); // none, low, medium, high, critical
+```
+
+**Detection Layers:**
+
+| Layer | What it checks |
+|-------|---------------|
+| 1. Mock Provider | Developer settings, `isMock` flag, test providers, mock location app ops |
+| 2. Spoofing Apps | 30+ known GPS faker packages (Android), jailbreak tweaks/dylibs (iOS) |
+| 3. Location Hooks | Xposed method patching, Obj-C swizzle, ARM64 trampolines, `/proc/self/maps` |
+| 4. GPS Signal | Satellite SNR uniformity, constellation diversity, impossible satellite counts |
+| 5. Sensor Fusion | Accelerometer/gyro/barometer vs GPS — catches physics-violating spoofs |
+| 6. Temporal Anomaly | Teleportation, impossible speed, bearing reversal, replay attacks |
+| 7. Integrity | Weighted aggregation + cross-validation with RASP detectors |
+
+**Platform depth:**
+
+- **Android:** Full 7 layers (GNSS callbacks, reflection hook detection, sensor correlation)
+- **iOS:** Full 7 layers (CoreMotion, `dladdr` swizzle detection, dylib injection scan)
+- **macOS:** 4 layers (mock provider, hooks, temporal, integrity)
+- **Windows/Linux:** 4 layers (process scanning, hook detection, temporal, integrity)
+- **Web:** 2 layers (Geolocation API override detection, prototype tampering)
 
 ---
 

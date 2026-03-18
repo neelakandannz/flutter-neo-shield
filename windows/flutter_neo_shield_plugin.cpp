@@ -24,6 +24,7 @@
 #include "rasp/network_threat_detector.h"
 #include "screen/screen_protector.h"
 #include "screen/screen_recording_detector.h"
+#include "location/location_shield_handler.h"
 #include "shield_codec.h"
 
 namespace flutter_neo_shield {
@@ -48,6 +49,9 @@ class FlutterNeoShieldPlugin : public flutter::Plugin {
   ScreenProtector screen_protector_;
   ScreenRecordingDetector screen_recording_detector_;
 
+  // Location Shield
+  LocationShieldHandler location_handler_;
+
   flutter::PluginRegistrarWindows *registrar_;
 };
 
@@ -71,6 +75,12 @@ void FlutterNeoShieldPlugin::RegisterWithRegistrar(
           ShieldCodec::Decode(ShieldCodec::ChannelScreen()),
           &flutter::StandardMethodCodec::GetInstance());
 
+  auto location_channel =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          registrar->messenger(),
+          ShieldCodec::Decode(ShieldCodec::ChannelLocation()),
+          &flutter::StandardMethodCodec::GetInstance());
+
   auto plugin = std::make_unique<FlutterNeoShieldPlugin>(registrar);
   auto plugin_ptr = plugin.get();
 
@@ -85,6 +95,11 @@ void FlutterNeoShieldPlugin::RegisterWithRegistrar(
       });
 
   screen_channel->SetMethodCallHandler(
+      [plugin_ptr](const auto &call, auto result) {
+        plugin_ptr->HandleMethodCall(call, std::move(result));
+      });
+
+  location_channel->SetMethodCallHandler(
       [plugin_ptr](const auto &call, auto result) {
         plugin_ptr->HandleMethodCall(call, std::move(result));
       });
@@ -231,6 +246,16 @@ void FlutterNeoShieldPlugin::HandleMethodCall(
   }
   else if (method == ShieldCodec::Decode(ShieldCodec::MethodIsScreenBeingRecorded())) {
     result->Success(flutter::EncodableValue(screen_recording_detector_.IsRecording()));
+  }
+  // Location Shield
+  else if (method == ShieldCodec::Decode(ShieldCodec::MethodCheckFakeLocation()) ||
+           method == ShieldCodec::Decode(ShieldCodec::MethodCheckMockProvider()) ||
+           method == ShieldCodec::Decode(ShieldCodec::MethodCheckSpoofingApps()) ||
+           method == ShieldCodec::Decode(ShieldCodec::MethodCheckLocationHooks()) ||
+           method == ShieldCodec::Decode(ShieldCodec::MethodCheckGpsAnomaly()) ||
+           method == ShieldCodec::Decode(ShieldCodec::MethodCheckSensorFusion()) ||
+           method == ShieldCodec::Decode(ShieldCodec::MethodCheckTemporalAnomaly())) {
+    location_handler_.HandleMethodCall(method_call, std::move(result));
   }
   else {
     result->NotImplemented();

@@ -50,7 +50,16 @@ class FlutterNeoShieldWeb {
   static final String _mWipe = ShieldCodec.d(ShieldCodec.mWipeSecure);
   static final String _mWipeAll = ShieldCodec.d(ShieldCodec.mWipeAll);
 
-  /// Registers all method channel handlers for RASP, screen, and memory.
+  // Location decoded method names
+  static final String _mFakeLoc = ShieldCodec.d(ShieldCodec.mCheckFakeLocation);
+  static final String _mMockProv = ShieldCodec.d(ShieldCodec.mCheckMockProvider);
+  static final String _mSpoofApps = ShieldCodec.d(ShieldCodec.mCheckSpoofingApps);
+  static final String _mLocHooks = ShieldCodec.d(ShieldCodec.mCheckLocationHooks);
+  static final String _mGpsAnom = ShieldCodec.d(ShieldCodec.mCheckGpsAnomaly);
+  static final String _mSensorFus = ShieldCodec.d(ShieldCodec.mCheckSensorFusion);
+  static final String _mTempAnom = ShieldCodec.d(ShieldCodec.mCheckTemporalAnomaly);
+
+  /// Registers all method channel handlers for RASP, screen, memory, and location.
   static void registerWith(Registrar registrar) {
     // RASP channel
     final raspChannel = MethodChannel(
@@ -75,6 +84,14 @@ class FlutterNeoShieldWeb {
       registrar,
     );
     memoryChannel.setMethodCallHandler(_handleMemoryCall);
+
+    // Location channel
+    final locationChannel = MethodChannel(
+      ShieldCodec.d(ShieldCodec.chLocation),
+      const StandardMethodCodec(),
+      registrar,
+    );
+    locationChannel.setMethodCallHandler(_handleLocationCall);
   }
 
   // ---------------------------------------------------------------------------
@@ -164,6 +181,106 @@ class FlutterNeoShieldWeb {
       code: 'UNIMPLEMENTED',
       message: '${call.method} is not implemented on web',
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Location method handler
+  // ---------------------------------------------------------------------------
+
+  static Future<dynamic> _handleLocationCall(MethodCall call) async {
+    final m = call.method;
+    if (m == _mFakeLoc) return _checkFakeLocationWeb();
+    if (m == _mMockProv) return _checkGeolocationOverride();
+    if (m == _mSpoofApps) {
+      return <String, dynamic>{
+        'detected': false,
+        'detectedApps': <String>[],
+      };
+    }
+    if (m == _mLocHooks) return _checkGeolocationHooks();
+    if (m == _mGpsAnom) return 0.0;
+    if (m == _mSensorFus) return 0.0;
+    if (m == _mTempAnom) return 0.0;
+    throw PlatformException(
+      code: 'UNIMPLEMENTED',
+      message: '${call.method} is not implemented on web',
+    );
+  }
+
+  /// Full fake location check for web — combines available heuristics.
+  static Map<String, dynamic> _checkFakeLocationWeb() {
+    final scores = <String, double>{};
+    final methods = <String>[];
+
+    // Layer 1: Geolocation override detection
+    final overrideDetected = _checkGeolocationOverride();
+    scores['mockProvider'] = overrideDetected ? 0.8 : 0.0;
+    if (overrideDetected) methods.add('mockProvider');
+
+    // Layer 3: Geolocation API hook detection
+    final hooksDetected = _checkGeolocationHooks();
+    scores['locationHook'] = hooksDetected ? 0.7 : 0.0;
+    if (hooksDetected) methods.add('locationHook');
+
+    // Layers 2,4,5 not applicable on web
+    scores['spoofingApp'] = 0.0;
+    scores['gpsSignal'] = 0.0;
+    scores['sensorFusion'] = 0.0;
+    scores['temporalAnomaly'] = 0.0;
+
+    // Layer 7: Aggregate
+    var total = 0.0;
+    var weight = 0.0;
+    scores.forEach((k, v) {
+      total += v;
+      weight += 1.0;
+    });
+    final confidence = weight > 0 ? (total / weight) : 0.0;
+    final triggered = scores.values.where((v) => v > 0.3).length;
+    final amplifier = triggered >= 3 ? 1.5 : triggered >= 2 ? 1.3 : 1.0;
+    final finalConfidence = (confidence * amplifier).clamp(0.0, 1.0);
+
+    return <String, dynamic>{
+      'isSpoofed': finalConfidence >= 0.5,
+      'confidence': finalConfidence,
+      'detectedMethods': methods,
+      'layerScores': scores,
+      'summary': finalConfidence >= 0.5
+          ? 'Fake location detected (web)'
+          : 'Location appears authentic',
+    };
+  }
+
+  /// Check if Chrome DevTools geolocation override is active.
+  static bool _checkGeolocationOverride() {
+    try {
+      // DevTools overrides set navigator.geolocation to a custom object
+      // Check if getCurrentPosition has been replaced
+      final result = _evalJs(
+        'typeof navigator !== "undefined" && '
+        'typeof navigator.geolocation !== "undefined" && '
+        'typeof navigator.geolocation.getCurrentPosition === "function" && '
+        'navigator.geolocation.getCurrentPosition.toString().indexOf("native code") === -1',
+      );
+      return result == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Check if Geolocation API prototype has been tampered.
+  static bool _checkGeolocationHooks() {
+    try {
+      // Check if Geolocation prototype methods are native
+      final result = _evalJs(
+        'typeof Geolocation !== "undefined" && '
+        'typeof Geolocation.prototype.getCurrentPosition === "function" && '
+        'Geolocation.prototype.getCurrentPosition.toString().indexOf("native code") === -1',
+      );
+      return result == true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // ===========================================================================

@@ -60,6 +60,10 @@ export 'src/screen_shield/screen_shield_callback.dart';
 export 'src/screen_shield/screen_shield_config.dart';
 export 'src/screen_shield/screen_shield_widget.dart';
 
+// Location Shield
+export 'src/location_shield/location_shield.dart';
+export 'src/location_shield/location_result.dart';
+
 // Main
 export 'src/flutter_neo_shield.dart';
 

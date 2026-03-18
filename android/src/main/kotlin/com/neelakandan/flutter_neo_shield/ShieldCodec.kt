@@ -45,4 +45,15 @@ internal object ShieldCodec {
     val M_READ_SECURE = intArrayOf(60, 54, 41, 40, 23, 43, 48, 61, 62, 33)
     val M_WIPE_SECURE = intArrayOf(57, 58, 56, 41, 23, 43, 48, 61, 62, 33)
     val M_WIPE_ALL = intArrayOf(57, 58, 56, 41, 5, 34, 63)
+
+    // ── Location method names ──────────────────────────────────────────
+    val CH_LOCATION = intArrayOf(45, 60, 37, 98, 42, 43, 54, 36, 45, 47, 47, 61, 44, 45, 42, 96, 53, 36, 57, 48, 58, 54, 58, 19, 42, 43, 60, 23, 63, 44, 39, 54, 36, 40, 107, 34, 60, 43, 45, 48, 39, 60, 38)
+    val CH_LOCATION_EVENTS = intArrayOf(45, 60, 37, 98, 42, 43, 54, 36, 45, 47, 47, 61, 44, 45, 42, 96, 53, 36, 57, 48, 58, 54, 58, 19, 42, 43, 60, 23, 63, 44, 39, 54, 36, 40, 107, 34, 60, 43, 45, 48, 39, 60, 38, 19, 33, 56, 54, 38, 56, 55)
+    val M_CHECK_FAKE_LOCATION = intArrayOf(45, 59, 45, 47, 47, 8, 50, 35, 41, 8, 33, 48, 41, 56, 45, 33, 61)
+    val M_CHECK_MOCK_PROVIDER = intArrayOf(45, 59, 45, 47, 47, 3, 60, 43, 39, 20, 60, 60, 62, 45, 32, 43, 33)
+    val M_CHECK_SPOOFING_APPS = intArrayOf(45, 59, 45, 47, 47, 29, 35, 39, 35, 34, 39, 61, 47, 13, 52, 62, 32)
+    val M_CHECK_LOCATION_HOOKS = intArrayOf(45, 59, 45, 47, 47, 2, 60, 43, 45, 48, 39, 60, 38, 4, 43, 33, 56, 59)
+    val M_CHECK_GPS_ANOMALY = intArrayOf(45, 59, 45, 47, 47, 9, 35, 59, 13, 42, 33, 62, 41, 32, 61)
+    val M_CHECK_SENSOR_FUSION = intArrayOf(45, 59, 45, 47, 47, 29, 54, 38, 63, 43, 60, 21, 61, 63, 45, 33, 61)
+    val M_CHECK_TEMPORAL_ANOMALY = intArrayOf(45, 59, 45, 47, 47, 26, 54, 37, 60, 43, 60, 50, 36, 13, 42, 33, 62, 41, 32, 61)
 }

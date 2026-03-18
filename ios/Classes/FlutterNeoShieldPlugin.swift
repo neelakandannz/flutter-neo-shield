@@ -15,6 +15,9 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
     private let appSwitcherGuard = AppSwitcherGuard()
     private var screenEventSink: FlutterEventSink?
 
+    // Location Shield
+    private let locationShieldHandler = LocationShieldHandler()
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let memoryChannel = FlutterMethodChannel(
             name: ShieldCodec.chMemory,
@@ -33,10 +36,16 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
             binaryMessenger: registrar.messenger()
         )
 
+        let locationChannel = FlutterMethodChannel(
+            name: ShieldCodec.chLocation,
+            binaryMessenger: registrar.messenger()
+        )
+
         let instance = FlutterNeoShieldPlugin()
         registrar.addMethodCallDelegate(instance, channel: memoryChannel)
         registrar.addMethodCallDelegate(instance, channel: raspChannel)
         registrar.addMethodCallDelegate(instance, channel: screenChannel)
+        registrar.addMethodCallDelegate(instance, channel: locationChannel)
         screenEventChannel.setStreamHandler(instance)
     }
 
@@ -116,6 +125,17 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
             result(true)
         } else if method == ShieldCodec.mIsScreenBeingRecorded {
             result(recordingDetector.isRecording)
+
+        // Location Shield — delegated to LocationShieldHandler
+        } else if method == ShieldCodec.mCheckFakeLocation ||
+                  method == ShieldCodec.mCheckMockProvider ||
+                  method == ShieldCodec.mCheckSpoofingApps ||
+                  method == ShieldCodec.mCheckLocationHooks ||
+                  method == ShieldCodec.mCheckGpsAnomaly ||
+                  method == ShieldCodec.mCheckSensorFusion ||
+                  method == ShieldCodec.mCheckTemporalAnomaly {
+            locationShieldHandler.handle(call, result: result)
+
         } else {
             result(FlutterMethodNotImplemented)
         }
