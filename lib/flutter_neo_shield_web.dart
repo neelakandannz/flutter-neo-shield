@@ -27,7 +27,6 @@ import 'src/platform/shield_codec.dart';
 /// Screen protection uses CSS-based content hiding (limited effectiveness).
 /// Memory operations use Dart-side wipe (no native secure memory on web).
 class FlutterNeoShieldWeb {
-  /// Registers all method channel handlers for RASP, screen, and memory.
   // Decoded method names (cached once at class init).
   static final String _mDebugger = ShieldCodec.d(ShieldCodec.mCheckDebugger);
   static final String _mRoot = ShieldCodec.d(ShieldCodec.mCheckRoot);
@@ -58,6 +57,15 @@ class FlutterNeoShieldWeb {
   static final String _mGpsAnom = ShieldCodec.d(ShieldCodec.mCheckGpsAnomaly);
   static final String _mSensorFus = ShieldCodec.d(ShieldCodec.mCheckSensorFusion);
   static final String _mTempAnom = ShieldCodec.d(ShieldCodec.mCheckTemporalAnomaly);
+
+  // New v2.0.0 method names
+  static final String _mOverlay = ShieldCodec.d(ShieldCodec.mCheckOverlay);
+  static final String _mClickjack = ShieldCodec.d(ShieldCodec.mCheckClickjacking);
+  static final String _mAccessibility = ShieldCodec.d(ShieldCodec.mCheckAccessibility);
+  static final String _mKeyboard = ShieldCodec.d(ShieldCodec.mCheckKeyboard);
+  static final String _mKeylogger = ShieldCodec.d(ShieldCodec.mCheckKeylogger);
+  static final String _mCodeInject = ShieldCodec.d(ShieldCodec.mCheckCodeInjection);
+  static final String _mObfuscation = ShieldCodec.d(ShieldCodec.mCheckObfuscation);
 
   /// Registers all method channel handlers for RASP, screen, memory, and location.
   static void registerWith(Registrar registrar) {
@@ -92,6 +100,28 @@ class FlutterNeoShieldWeb {
       registrar,
     );
     locationChannel.setMethodCallHandler(_handleLocationCall);
+
+    // New v2.0.0 channels
+    final secureStorageChannel = MethodChannel(
+      ShieldCodec.d(ShieldCodec.chSecureStorage),
+      const StandardMethodCodec(),
+      registrar,
+    );
+    secureStorageChannel.setMethodCallHandler(_handleSecureStorageCall);
+
+    final biometricChannel = MethodChannel(
+      ShieldCodec.d(ShieldCodec.chBiometric),
+      const StandardMethodCodec(),
+      registrar,
+    );
+    biometricChannel.setMethodCallHandler(_handleBiometricCall);
+
+    final deviceBindingChannel = MethodChannel(
+      ShieldCodec.d(ShieldCodec.chDeviceBinding),
+      const StandardMethodCodec(),
+      registrar,
+    );
+    deviceBindingChannel.setMethodCallHandler(_handleDeviceBindingCall);
   }
 
   // ---------------------------------------------------------------------------
@@ -110,6 +140,14 @@ class FlutterNeoShieldWeb {
     if (m == _mSignature) return _checkSignature();
     if (m == _mNativeDbg) return _checkNativeDebug();
     if (m == _mNetwork) return _checkNetworkThreats();
+    // New v2.0.0 checks
+    if (m == _mOverlay) return false; // N/A on web
+    if (m == _mClickjack) return _checkClickjacking();
+    if (m == _mAccessibility) return false;
+    if (m == _mKeyboard) return false;
+    if (m == _mKeylogger) return false;
+    if (m == _mCodeInject) return false;
+    if (m == _mObfuscation) return false;
     throw PlatformException(
       code: 'UNIMPLEMENTED',
       message: '${call.method} is not implemented on web',
@@ -614,6 +652,75 @@ class FlutterNeoShieldWeb {
   // ===========================================================================
   // JS Interop Helpers (WASM-compatible)
   // ===========================================================================
+
+  /// Detect if the page is embedded in an iframe (clickjacking).
+  static bool _checkClickjacking() {
+    try {
+      final result = _evalJs(
+        'window.self !== window.top',
+      );
+      return result == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // New v2.0.0 channel handlers
+  // ---------------------------------------------------------------------------
+
+  static final Map<String, String> _webSecureStore = {};
+
+  static Future<dynamic> _handleSecureStorageCall(MethodCall call) async {
+    final args = call.arguments as Map<dynamic, dynamic>?;
+    switch (call.method) {
+      case 'writeSecure':
+        final key = args?['key'] as String? ?? '';
+        final value = args?['value'] as String? ?? '';
+        _webSecureStore[key] = value;
+        return true;
+      case 'readSecure':
+        return _webSecureStore[args?['key'] as String? ?? ''];
+      case 'deleteSecure':
+        _webSecureStore.remove(args?['key'] as String? ?? '');
+        return true;
+      case 'containsKeySecure':
+        return _webSecureStore.containsKey(args?['key'] as String? ?? '');
+      case 'wipeAllSecure':
+        _webSecureStore.clear();
+        return true;
+      default:
+        throw PlatformException(code: 'UNIMPLEMENTED', message: '${call.method} not implemented on web');
+    }
+  }
+
+  static Future<dynamic> _handleBiometricCall(MethodCall call) async {
+    // Biometric auth not available on web
+    switch (call.method) {
+      case 'checkBiometric':
+        return <String, dynamic>{'available': false, 'types': <String>[], 'canAuth': false};
+      case 'authenticate':
+        return <String, dynamic>{'success': false, 'error': 'Biometric not available on web'};
+      default:
+        throw PlatformException(code: 'UNIMPLEMENTED', message: '${call.method} not implemented on web');
+    }
+  }
+
+  static Future<dynamic> _handleDeviceBindingCall(MethodCall call) async {
+    if (call.method == 'getDeviceFingerprint') {
+      // Generate a browser-based fingerprint
+      try {
+        final result = _evalJs(
+          '[navigator.userAgent, navigator.language, screen.width, screen.height, '
+          'screen.colorDepth, new Date().getTimezoneOffset()].join("|")',
+        );
+        return result?.toString();
+      } catch (_) {
+        return null;
+      }
+    }
+    throw PlatformException(code: 'UNIMPLEMENTED', message: '${call.method} not implemented on web');
+  }
 
   /// Check if a property exists on the global `window` object.
   static bool _hasGlobalProperty(String name) {

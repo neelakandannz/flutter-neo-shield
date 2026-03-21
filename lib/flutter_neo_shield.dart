@@ -1,7 +1,7 @@
-/// Client-side PII protection toolkit for Flutter.
+/// Client-side security & PII protection toolkit for Flutter.
 ///
-/// Auto-scrubs sensitive data from logs, secures clipboard with timed
-/// auto-clear, and protects sensitive strings in memory.
+/// 20 shields covering runtime protection, data security, input safety,
+/// network hardening, and privacy compliance — native on all 6 platforms.
 ///
 /// ```dart
 /// import 'package:flutter_neo_shield/flutter_neo_shield.dart';
@@ -63,6 +63,69 @@ export 'src/screen_shield/screen_shield_widget.dart';
 // Location Shield
 export 'src/location_shield/location_shield.dart';
 export 'src/location_shield/location_result.dart';
+
+// --- New Shields (v2.0.0) ---
+
+// Overlay Shield
+export 'src/overlay_shield/overlay_shield.dart';
+export 'src/overlay_shield/overlay_shield_config.dart';
+
+// Accessibility Shield
+export 'src/accessibility_shield/accessibility_shield.dart';
+
+// Secure Input Shield
+export 'src/secure_input_shield/secure_input_shield.dart';
+
+// Certificate Pinning Shield
+export 'src/cert_pin_shield/cert_pin_shield.dart';
+
+// WebView Shield
+export 'src/webview_shield/webview_shield.dart';
+
+// Secure Storage Shield
+export 'src/secure_storage_shield/secure_storage_shield.dart';
+
+// Biometric Shield
+export 'src/biometric_shield/biometric_shield.dart';
+
+// Encryption Shield
+export 'src/encryption_shield/encryption_shield.dart';
+
+// RASP Monitor
+export 'src/rasp_monitor/rasp_monitor.dart';
+
+// Threat Response
+export 'src/threat_response/threat_response.dart';
+
+// Device Binding Shield
+export 'src/device_binding_shield/device_binding_shield.dart';
+
+// DNS Shield
+export 'src/dns_shield/dns_shield.dart';
+
+// TLS Shield
+export 'src/tls_shield/tls_shield.dart';
+
+// Permission Shield
+export 'src/permission_shield/permission_shield.dart';
+
+// DLP Shield
+export 'src/dlp_shield/dlp_shield.dart';
+
+// Watermark Shield
+export 'src/watermark_shield/watermark_shield.dart';
+
+// Dependency Shield
+export 'src/dependency_shield/dependency_shield.dart';
+
+// Code Injection Shield
+export 'src/code_injection_shield/code_injection_shield.dart';
+
+// Obfuscation Shield
+export 'src/obfuscation_shield/obfuscation_shield.dart';
+
+// Security Dashboard
+export 'src/security_dashboard/security_dashboard.dart';
 
 // Main
 export 'src/flutter_neo_shield.dart';

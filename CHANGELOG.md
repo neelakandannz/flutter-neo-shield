@@ -1,3 +1,152 @@
+## 2.0.0
+
+### 20 New Security Shields — The Biggest Update Ever
+
+Major release adding **13 new shield modules** and **7 security enhancements** to existing shields. Every feature is implemented in separate files — zero changes to existing APIs. Full backward compatibility.
+
+#### New Shield Modules
+
+##### 1. Overlay/Tapjacking Shield
+- **Android:** Detects `TYPE_APPLICATION_OVERLAY` windows drawn over your app, `filterTouchesWhenObscured` enforcement
+- **iOS:** OS-level overlay prevention (check for unexpected windows)
+- **Web:** Clickjacking detection via iframe embedding checks
+- API: `OverlayShield.instance.enableTouchFiltering()`, `checkOverlayAttack()`, `checkClickjacking()`
+- New files: `lib/src/overlay_shield/`, Android `OverlayDetector.kt`, iOS `OverlayDetector.swift`, all desktop platforms
+
+##### 2. Accessibility Service Abuse Detection
+- **Android:** Scans `AccessibilityManager.getEnabledAccessibilityServiceList()` for non-system services that can read screen content and capture keystrokes
+- **iOS:** Detects VoiceOver, SwitchControl, AssistiveTouch status
+- **macOS:** Checks `AXIsProcessTrusted()` for accessibility trust
+- **Windows:** `SystemParametersInfo(SPI_GETSCREENREADER)` detection
+- **Linux:** AT-SPI bus detection
+- API: `AccessibilityShield.checkAccessibilityAbuse()`, `getEnabledServices()`, `isScreenReaderActive()`
+
+##### 3. Secure Input Shield (Anti-Keylogger)
+- **Android:** Detects third-party keyboards via `InputMethodManager`, identifies non-system IME (Samsung, Huawei, MIUI, OPPO, OnePlus, LGE system keyboards whitelisted)
+- **iOS:** Detects non-Apple keyboard extensions via `UITextInputMode`
+- **macOS:** Carbon `TISCreateInputSourceList` inspection
+- **Flutter widget:** `SecureTextField` — forces system keyboard, disables IME personalized learning, suggestions, and autocorrect
+- API: `SecureInputShield.isThirdPartyKeyboardActive()`, `getCurrentKeyboardPackage()`, `isKeyloggerDetected()`
+
+##### 4. Certificate Pinning Shield
+- Pin hosts to SHA-256 certificate hashes: `CertPinShield.instance.pin('api.example.com', hashes)`
+- Creates `HttpClient` with pinned certificates via `badCertificateCallback`
+- `validateCertificate(host, hash)` for manual validation
+- Supports pin rotation with multiple backup hashes
+
+##### 5. WebView Shield
+- URL validation: blocks `javascript:`, `file://`, enforces HTTPS
+- Host allowlisting: `configure(allowedHosts: {'api.example.com'})`
+- `recommendedSettings` map for hardened WebView configuration
+- `validateUrl()` returns null (safe) or error message (blocked)
+
+##### 6. Secure Storage Shield (Keystore/Keychain)
+- **Android:** AES-256-GCM encrypted SharedPreferences with app-generated key
+- **iOS/macOS:** Keychain Services with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
+- **Windows:** DPAPI-backed encryption (placeholder)
+- **Linux:** App-level encrypted storage (placeholder)
+- **Web:** In-memory fallback
+- API: `SecureStorageShield.instance.write(key, value)`, `.read(key)`, `.delete(key)`, `.wipeAll()`
+
+##### 7. Biometric Auth Shield
+- **iOS:** `LAContext` with Face ID/Touch ID/Optic ID support, device credential fallback
+- **Android:** Biometric prompt support (placeholder — use with `BiometricShield.instance.authenticate()`)
+- `checkAvailability()` returns `BiometricAvailability` with supported types
+- `authenticate(reason:)` returns `BiometricResult` with success/error
+
+##### 8. Data-at-Rest Encryption Shield
+- AES-256 key generation via `Random.secure()`
+- XOR-with-IV encryption for lightweight local data protection
+- `encryptString()` / `decryptString()` with base64 encoding
+- `encryptJson()` / `decryptJson()` for structured data
+- Combine with SecureStorageShield for key management
+
+##### 9. Continuous RASP Monitor
+- Background watchdog: `RaspMonitor.instance.startMonitoring(interval: Duration(seconds: 30))`
+- `Stream<SecurityReport>` via `reports` for real-time threat notifications
+- Threat counter: `threatCount` tracks cumulative detections
+- Graduated response modes: silent, warn, strict, custom
+- `stopMonitoring()` to stop the periodic scan
+
+##### 10. Threat Response Engine
+- Automated incident response: `ThreatResponse.instance.respond(report, config)`
+- `wipeSecrets()` — clears all MemoryShield containers
+- `wipeStorage()` — clears all SecureStorageShield data
+- `wipeAll()` — memory + storage wipe
+- `ThreatResponseConfig` — configure wipe-on-threat, kill-on-critical (3+ simultaneous threats)
+- Listener pattern: `addListener((report) => handleThreat(report))`
+
+##### 11. Device Binding Shield
+- **Android:** SHA-256 of ANDROID_ID + Build.FINGERPRINT + hardware properties
+- **iOS:** SHA-256 of identifierForVendor + device model + hw.machine
+- **macOS:** IOPlatformUUID + hw.model hash
+- **Windows:** MachineGuid from registry + ComputerName hash (SHA-256 via CryptoAPI)
+- **Linux:** /etc/machine-id + hostname hash
+- API: `DeviceBindingShield.instance.getDeviceFingerprint()`, `validateBinding(expectedFingerprint)`
+
+##### 12. DNS Shield
+- Pin domains to expected IPs: `DnsShield.instance.pinDomain('api.example.com', {'1.2.3.4'})`
+- `validateDns(domain)` resolves and compares against pinned IPs
+- `validateAll()` checks all pinned domains, returns failure map
+- Detect DNS spoofing / manipulation
+
+##### 13. TLS Configuration Shield
+- `createSecureClient()` — HttpClient with hardened TLS defaults
+- `validateHost(host)` — connect and verify TLS negotiation
+- `validateHosts(hosts)` — batch validation, returns failure map
+
+#### Security Enhancements
+
+##### 14. Permission Shield
+- **Android:** Camera/Microphone in-use detection, background location monitoring
+- **iOS:** AVCaptureDevice authorization status monitoring
+- API: `PermissionShield.isCameraInUse()`, `isMicrophoneInUse()`, `isLocationAccessedInBackground()`
+
+##### 15. Data Leak Prevention (DLP) Shield
+- `sanitizeDeepLink(url)` — strips PII from deep link query parameters
+- `sanitizeExtras(map)` — PII detection on intent extras / share data
+- `detectLeaks(data)` — returns list of PII types found
+- `validateShareData(data)` — null if safe, PII types if unsafe
+
+##### 16. Screenshot Watermark Shield
+- `WatermarkOverlay` widget — repeating invisible watermark pattern
+- Configurable: opacity (default 0.03), font size, rotation angle, color
+- `WatermarkShield.instance.configure(text: 'user@example.com')` for global config
+- Alternative to blocking: allow screenshots but trace leakers
+
+##### 17. Dependency Integrity Shield
+- `registerHashes(map)` — store expected package checksums
+- `verifyLockfile(path)` — validate pubspec.lock against expected hashes
+- Intended for CI/CD integration
+
+##### 18. Code Injection Detection Shield
+- **Android:** Scans for unexpected .dex/.jar files in app directory, suspicious strings in /proc/self/maps
+- **iOS/macOS:** DYLD_INSERT_LIBRARIES detection + suspicious dylib scanning (inject, payload, exploit, backdoor, trojan, keylog)
+- **Windows:** EnumProcessModules for suspicious DLL names
+- **Linux:** LD_PRELOAD + /proc/self/maps scanning
+- API: `CodeInjectionShield.checkCodeInjection()`, `getSuspiciousModules()`
+
+##### 19. Obfuscation Health Check Shield
+- Runtime class name check: detects if ProGuard/obfuscation was applied
+- `ObfuscationShield.isObfuscated()` — native platform check
+- `checkDartSymbols()` — verifies Dart class names are mangled
+
+##### 20. Security Dashboard Widget
+- `SecurityDashboard()` — Material Card showing all 10 RASP check results
+- Color-coded: green (safe) / red (detected) per check
+- Refresh button for on-demand re-scan
+- Debug-only widget for development/QA verification
+
+#### Architecture
+
+- **Zero breaking changes** — all new features are in separate files
+- **New method channel constants** — 16 new XOR-encoded method names in `ShieldCodec`
+- **3 new platform channels** — `secure_storage`, `biometric`, `device_binding`
+- **New native files:** 8 Android (Kotlin), 9 iOS (Swift), 7 macOS (Swift), 14 Windows (C++), 14 Linux (C++)
+- **Version:** 1.11.0 → 2.0.0
+
+---
+
 ## 1.11.0
 
 ### Location Shield — Native-Level Fake Location Detection

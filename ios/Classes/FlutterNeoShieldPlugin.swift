@@ -18,6 +18,9 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
     // Location Shield
     private let locationShieldHandler = LocationShieldHandler()
 
+    // New v2.0.0
+    private let secureStorageHandler = SecureStorageHandler()
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let memoryChannel = FlutterMethodChannel(
             name: ShieldCodec.chMemory,
@@ -41,11 +44,28 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
             binaryMessenger: registrar.messenger()
         )
 
+        // New v2.0.0 channels
+        let secureStorageChannel = FlutterMethodChannel(
+            name: ShieldCodec.chSecureStorage,
+            binaryMessenger: registrar.messenger()
+        )
+        let biometricChannel = FlutterMethodChannel(
+            name: ShieldCodec.chBiometric,
+            binaryMessenger: registrar.messenger()
+        )
+        let deviceBindingChannel = FlutterMethodChannel(
+            name: ShieldCodec.chDeviceBinding,
+            binaryMessenger: registrar.messenger()
+        )
+
         let instance = FlutterNeoShieldPlugin()
         registrar.addMethodCallDelegate(instance, channel: memoryChannel)
         registrar.addMethodCallDelegate(instance, channel: raspChannel)
         registrar.addMethodCallDelegate(instance, channel: screenChannel)
         registrar.addMethodCallDelegate(instance, channel: locationChannel)
+        registrar.addMethodCallDelegate(instance, channel: secureStorageChannel)
+        registrar.addMethodCallDelegate(instance, channel: biometricChannel)
+        registrar.addMethodCallDelegate(instance, channel: deviceBindingChannel)
         screenEventChannel.setStreamHandler(instance)
     }
 
@@ -135,6 +155,70 @@ public class FlutterNeoShieldPlugin: NSObject, FlutterPlugin {
                   method == ShieldCodec.mCheckSensorFusion ||
                   method == ShieldCodec.mCheckTemporalAnomaly {
             locationShieldHandler.handle(call, result: result)
+
+        // --- New v2.0.0 RASP checks ---
+        } else if method == ShieldCodec.mCheckOverlay {
+            result(OverlayDetector.check())
+        } else if method == ShieldCodec.mEnableOverlayProtection ||
+                  method == ShieldCodec.mDisableOverlayProtection {
+            result(true)
+        } else if method == ShieldCodec.mCheckClickjacking {
+            result(OverlayDetector.checkClickjacking())
+        } else if method == ShieldCodec.mCheckAccessibility {
+            result(AccessibilityDetector.check())
+        } else if method == ShieldCodec.mGetAccessibilityServices {
+            result(AccessibilityDetector.getEnabledServices())
+        } else if method == ShieldCodec.mCheckScreenReader {
+            result(AccessibilityDetector.isScreenReaderActive())
+        } else if method == ShieldCodec.mCheckKeyboard {
+            result(KeyboardDetector.isThirdPartyKeyboard())
+        } else if method == ShieldCodec.mGetKeyboardPackage {
+            result(KeyboardDetector.getCurrentKeyboardPackage())
+        } else if method == ShieldCodec.mCheckKeylogger {
+            result(KeyboardDetector.checkKeylogger())
+        } else if method == ShieldCodec.mCheckCodeInjection {
+            result(CodeInjectionDetector.check())
+        } else if method == ShieldCodec.mGetSuspiciousModules {
+            result(CodeInjectionDetector.getSuspiciousModules())
+        } else if method == ShieldCodec.mCheckObfuscation {
+            result(ObfuscationDetector.check())
+        } else if method == ShieldCodec.mCheckCameraInUse {
+            result(PermissionDetector.isCameraInUse())
+        } else if method == ShieldCodec.mCheckMicInUse {
+            result(PermissionDetector.isMicrophoneInUse())
+        } else if method == ShieldCodec.mCheckBgLocation {
+            result(PermissionDetector.isLocationAccessedInBackground())
+
+        // Secure Storage
+        } else if method == "writeSecure" {
+            let key = args?["key"] as? String ?? ""
+            let value = args?["value"] as? String ?? ""
+            result(secureStorageHandler.write(key: key, value: value))
+        } else if method == "readSecure" {
+            let key = args?["key"] as? String ?? ""
+            result(secureStorageHandler.read(key: key))
+        } else if method == "deleteSecure" {
+            let key = args?["key"] as? String ?? ""
+            result(secureStorageHandler.delete(key: key))
+        } else if method == "containsKeySecure" {
+            let key = args?["key"] as? String ?? ""
+            result(secureStorageHandler.containsKey(key: key))
+        } else if method == "wipeAllSecure" {
+            result(secureStorageHandler.wipeAll())
+
+        // Biometric
+        } else if method == "checkBiometric" {
+            result(BiometricHandler.checkAvailability())
+        } else if method == "authenticate" {
+            let reason = args?["reason"] as? String ?? "Authenticate"
+            let allowDevice = args?["allowDeviceCredential"] as? Bool ?? false
+            BiometricHandler.authenticate(reason: reason, allowDeviceCredential: allowDevice) { authResult in
+                result(authResult)
+            }
+
+        // Device Binding
+        } else if method == "getDeviceFingerprint" {
+            result(DeviceBindingDetector.getDeviceFingerprint())
 
         } else {
             result(FlutterMethodNotImplemented)

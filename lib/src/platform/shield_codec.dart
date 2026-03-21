@@ -156,4 +156,69 @@ class ShieldCodec {
 
   /// `checkTemporalAnomaly`
   static const mCheckTemporalAnomaly = [45, 59, 45, 47, 47, 26, 54, 37, 60, 43, 60, 50, 36, 13, 42, 33, 62, 41, 32, 61];
+
+  // ---------------------------------------------------------------------------
+  // Pre-encoded new channel names (v2.0.0)
+  // ---------------------------------------------------------------------------
+
+  /// `com.neelakandan.flutter_neo_shield/secure_storage`
+  static const chSecureStorage = [45, 60, 37, 98, 42, 43, 54, 36, 45, 47, 47, 61, 44, 45, 42, 96, 53, 36, 57, 48, 58, 54, 58, 19, 42, 43, 60, 23, 63, 44, 39, 54, 36, 40, 107, 61, 54, 43, 57, 54, 43, 12, 59, 56, 43, 60, 50, 47, 41];
+
+  /// `com.neelakandan.flutter_neo_shield/biometric`
+  static const chBiometric = [45, 60, 37, 98, 42, 43, 54, 36, 45, 47, 47, 61, 44, 45, 42, 96, 53, 36, 57, 48, 58, 54, 58, 19, 42, 43, 60, 23, 63, 44, 39, 54, 36, 40, 107, 44, 58, 39, 33, 33, 58, 33, 33, 47];
+
+  /// `com.neelakandan.flutter_neo_shield/device_binding`
+  static const chDeviceBinding = [45, 60, 37, 98, 42, 43, 54, 36, 45, 47, 47, 61, 44, 45, 42, 96, 53, 36, 57, 48, 58, 54, 58, 19, 42, 43, 60, 23, 63, 44, 39, 54, 36, 40, 107, 42, 54, 62, 37, 39, 43, 12, 42, 37, 42, 42, 58, 38, 43];
+
+  // ---------------------------------------------------------------------------
+  // Pre-encoded new RASP method names (v2.0.0)
+  // ---------------------------------------------------------------------------
+
+  /// `enableOverlayProtection`
+  static const mEnableOverlayProtection = [43, 61, 41, 46, 40, 43, 28, 62, 41, 54, 34, 50, 49, 28, 54, 33, 39, 45, 47, 48, 39, 60, 38];
+
+  /// `disableOverlayProtection`
+  static const mDisableOverlayProtection = [42, 58, 59, 45, 38, 34, 54, 7, 58, 33, 60, 63, 41, 53, 20, 60, 60, 60, 41, 39, 58, 58, 39, 34];
+
+  /// `checkOverlay`
+  static const mCheckOverlay = [45, 59, 45, 47, 47, 1, 37, 45, 62, 40, 47, 42];
+
+  /// `checkClickjacking`
+  static const mCheckClickjacking = [45, 59, 45, 47, 47, 13, 63, 33, 47, 47, 36, 50, 43, 39, 45, 32, 52];
+
+  /// `checkAccessibility`
+  static const mCheckAccessibility = [45, 59, 45, 47, 47, 15, 48, 43, 41, 55, 61, 58, 42, 37, 40, 39, 39, 49];
+
+  /// `getAccessibilityServices`
+  static const mGetAccessibilityServices = [41, 54, 60, 13, 39, 45, 54, 59, 63, 45, 44, 58, 36, 37, 48, 55, 0, 45, 62, 50, 39, 48, 45, 63];
+
+  /// `checkScreenReader`
+  static const mCheckScreenReader = [45, 59, 45, 47, 47, 29, 48, 58, 41, 33, 32, 1, 45, 45, 32, 43, 33];
+
+  /// `checkKeyboard`
+  static const mCheckKeyboard = [45, 59, 45, 47, 47, 5, 54, 49, 46, 43, 47, 33, 44];
+
+  /// `getKeyboardPackage`
+  static const mGetKeyboardPackage = [41, 54, 60, 7, 33, 55, 49, 39, 45, 54, 42, 3, 41, 47, 47, 47, 52, 45];
+
+  /// `checkKeylogger`
+  static const mCheckKeylogger = [45, 59, 45, 47, 47, 5, 54, 49, 32, 43, 41, 52, 45, 62];
+
+  /// `checkCodeInjection`
+  static const mCheckCodeInjection = [45, 59, 45, 47, 47, 13, 60, 44, 41, 13, 32, 57, 45, 47, 48, 39, 60, 38];
+
+  /// `getSuspiciousModules`
+  static const mGetSuspiciousModules = [41, 54, 60, 31, 49, 61, 35, 33, 47, 45, 33, 38, 59, 1, 43, 42, 38, 36, 41, 55];
+
+  /// `checkObfuscation`
+  static const mCheckObfuscation = [45, 59, 45, 47, 47, 1, 49, 46, 57, 55, 45, 50, 60, 37, 43, 32];
+
+  /// `checkCameraInUse`
+  static const mCheckCameraInUse = [45, 59, 45, 47, 47, 13, 50, 37, 41, 54, 47, 26, 38, 25, 55, 43];
+
+  /// `checkMicInUse`
+  static const mCheckMicInUse = [45, 59, 45, 47, 47, 3, 58, 43, 5, 42, 27, 32, 45];
+
+  /// `checkBgLocation`
+  static const mCheckBgLocation = [45, 59, 45, 47, 47, 12, 52, 4, 35, 39, 47, 39, 33, 35, 42];
 }

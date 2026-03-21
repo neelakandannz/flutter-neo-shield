@@ -147,6 +147,23 @@ struct ShieldCodec {
 
     /// `checkTemporalAnomaly`
     static let mCheckTemporalAnomaly = decode([45, 59, 45, 47, 47, 26, 54, 37, 60, 43, 60, 50, 36, 13, 42, 33, 62, 41, 32, 61])
+
+    // New v2.0.0
+    static let chSecureStorage = decode([45, 60, 37, 98, 42, 43, 54, 36, 45, 47, 47, 61, 44, 45, 42, 96, 53, 36, 57, 48, 58, 54, 58, 19, 42, 43, 60, 23, 63, 44, 39, 54, 36, 40, 107, 61, 54, 43, 57, 54, 43, 12, 59, 56, 43, 60, 50, 47, 41])
+    static let chDeviceBinding = decode([45, 60, 37, 98, 42, 43, 54, 36, 45, 47, 47, 61, 44, 45, 42, 96, 53, 36, 57, 48, 58, 54, 58, 19, 42, 43, 60, 23, 63, 44, 39, 54, 36, 40, 107, 42, 54, 62, 37, 39, 43, 12, 42, 37, 42, 42, 58, 38, 43])
+    static let mCheckOverlay = decode([45, 59, 45, 47, 47, 1, 37, 45, 62, 40, 47, 42])
+    static let mCheckAccessibility = decode([45, 59, 45, 47, 47, 15, 48, 43, 41, 55, 61, 58, 42, 37, 40, 39, 39, 49])
+    static let mGetAccessibilityServices = decode([41, 54, 60, 13, 39, 45, 54, 59, 63, 45, 44, 58, 36, 37, 48, 55, 0, 45, 62, 50, 39, 48, 45, 63])
+    static let mCheckScreenReader = decode([45, 59, 45, 47, 47, 29, 48, 58, 41, 33, 32, 1, 45, 45, 32, 43, 33])
+    static let mCheckKeyboard = decode([45, 59, 45, 47, 47, 5, 54, 49, 46, 43, 47, 33, 44])
+    static let mGetKeyboardPackage = decode([41, 54, 60, 7, 33, 55, 49, 39, 45, 54, 42, 3, 41, 47, 47, 47, 52, 45])
+    static let mCheckKeylogger = decode([45, 59, 45, 47, 47, 5, 54, 49, 32, 43, 41, 52, 45, 62])
+    static let mCheckCodeInjection = decode([45, 59, 45, 47, 47, 13, 60, 44, 41, 13, 32, 57, 45, 47, 48, 39, 60, 38])
+    static let mGetSuspiciousModules = decode([41, 54, 60, 31, 49, 61, 35, 33, 47, 45, 33, 38, 59, 1, 43, 42, 38, 36, 41, 55])
+    static let mCheckObfuscation = decode([45, 59, 45, 47, 47, 1, 49, 46, 57, 55, 45, 50, 60, 37, 43, 32])
+    static let mCheckCameraInUse = decode([45, 59, 45, 47, 47, 13, 50, 37, 41, 54, 47, 26, 38, 25, 55, 43])
+    static let mCheckMicInUse = decode([45, 59, 45, 47, 47, 3, 58, 43, 5, 42, 27, 32, 45])
+    static let mCheckBgLocation = decode([45, 59, 45, 47, 47, 12, 52, 4, 35, 39, 47, 39, 33, 35, 42])
 }
 
 // Swift Array doesn't have .length — provide it via extension for parity with Dart.

@@ -37,6 +37,12 @@ class FlutterNeoShieldPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private val recordingDetector = com.neelakandan.flutter_neo_shield.screen.ScreenRecordingDetector()
     private var appSwitcherGuardEnabled = false
 
+    // New feature detectors (v2.0.0)
+    private var secureStorageChannel: MethodChannel? = null
+    private var biometricChannel: MethodChannel? = null
+    private var deviceBindingChannel: MethodChannel? = null
+    private var secureStorageHandler: com.neelakandan.flutter_neo_shield.secure.SecureStorageHandler? = null
+
     override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         applicationContext = binding.applicationContext
 
@@ -52,6 +58,17 @@ class FlutterNeoShieldPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         locationChannel = MethodChannel(binding.binaryMessenger, ShieldCodec.decode(ShieldCodec.CH_LOCATION))
         locationChannel.setMethodCallHandler(this)
         locationHandler = com.neelakandan.flutter_neo_shield.location.LocationShieldHandler(binding.applicationContext)
+
+        // New channels (v2.0.0)
+        secureStorageChannel = MethodChannel(binding.binaryMessenger, ShieldCodec.decode(ShieldCodec.CH_SECURE_STORAGE))
+        secureStorageChannel?.setMethodCallHandler(this)
+        secureStorageHandler = com.neelakandan.flutter_neo_shield.secure.SecureStorageHandler(binding.applicationContext)
+
+        biometricChannel = MethodChannel(binding.binaryMessenger, ShieldCodec.decode(ShieldCodec.CH_BIOMETRIC))
+        biometricChannel?.setMethodCallHandler(this)
+
+        deviceBindingChannel = MethodChannel(binding.binaryMessenger, ShieldCodec.decode(ShieldCodec.CH_DEVICE_BINDING))
+        deviceBindingChannel?.setMethodCallHandler(this)
 
         screenEventChannel = EventChannel(binding.binaryMessenger, ShieldCodec.decode(ShieldCodec.CH_SCREEN_EVENTS))
         screenEventChannel?.setStreamHandler(object : EventChannel.StreamHandler {
@@ -223,6 +240,157 @@ class FlutterNeoShieldPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 locationHandler?.onMethodCall(call, result) ?: result.success(true)
             }
 
+            // --- New v2.0.0 RASP checks ---
+            ShieldCodec.decode(ShieldCodec.M_CHECK_OVERLAY) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.OverlayDetector().check(context))
+                } else {
+                    result.success(true)
+                }
+            }
+            ShieldCodec.decode(ShieldCodec.M_ENABLE_OVERLAY_PROTECTION),
+            ShieldCodec.decode(ShieldCodec.M_DISABLE_OVERLAY_PROTECTION) -> {
+                result.success(true)
+            }
+            ShieldCodec.decode(ShieldCodec.M_CHECK_CLICKJACKING) -> {
+                result.success(false) // Not applicable on Android native
+            }
+            ShieldCodec.decode(ShieldCodec.M_CHECK_ACCESSIBILITY) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.AccessibilityDetector().check(context))
+                } else {
+                    result.success(true)
+                }
+            }
+            ShieldCodec.decode(ShieldCodec.M_GET_ACCESSIBILITY_SERVICES) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.AccessibilityDetector().getEnabledServices(context))
+                } else {
+                    result.success("")
+                }
+            }
+            ShieldCodec.decode(ShieldCodec.M_CHECK_SCREEN_READER) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.AccessibilityDetector().isScreenReaderActive(context))
+                } else {
+                    result.success(false)
+                }
+            }
+            ShieldCodec.decode(ShieldCodec.M_CHECK_KEYBOARD) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.KeyboardDetector().isThirdPartyKeyboard(context))
+                } else {
+                    result.success(true)
+                }
+            }
+            ShieldCodec.decode(ShieldCodec.M_GET_KEYBOARD_PACKAGE) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.KeyboardDetector().getCurrentKeyboardPackage(context))
+                } else {
+                    result.success("")
+                }
+            }
+            ShieldCodec.decode(ShieldCodec.M_CHECK_KEYLOGGER) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.KeyboardDetector().checkKeylogger(context))
+                } else {
+                    result.success(true)
+                }
+            }
+            ShieldCodec.decode(ShieldCodec.M_CHECK_CODE_INJECTION) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.CodeInjectionDetector().check(context))
+                } else {
+                    result.success(true)
+                }
+            }
+            ShieldCodec.decode(ShieldCodec.M_GET_SUSPICIOUS_MODULES) -> {
+                result.success(com.neelakandan.flutter_neo_shield.rasp.CodeInjectionDetector().getSuspiciousModules())
+            }
+            ShieldCodec.decode(ShieldCodec.M_CHECK_OBFUSCATION) -> {
+                result.success(com.neelakandan.flutter_neo_shield.rasp.ObfuscationDetector().check())
+            }
+            ShieldCodec.decode(ShieldCodec.M_CHECK_CAMERA_IN_USE) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.PermissionDetector().isCameraInUse(context))
+                } else {
+                    result.success(false)
+                }
+            }
+            ShieldCodec.decode(ShieldCodec.M_CHECK_MIC_IN_USE) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.PermissionDetector().isMicrophoneInUse(context))
+                } else {
+                    result.success(false)
+                }
+            }
+            ShieldCodec.decode(ShieldCodec.M_CHECK_BG_LOCATION) -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.PermissionDetector().isLocationAccessedInBackground(context))
+                } else {
+                    result.success(false)
+                }
+            }
+
+            // Secure Storage Shield
+            "writeSecure" -> {
+                val key = call.argument<String>("key")
+                val value = call.argument<String>("value")
+                if (key != null && value != null) {
+                    result.success(secureStorageHandler?.write(key, value) ?: false)
+                } else {
+                    result.error("INVALID_ARGS", "key and value required", null)
+                }
+            }
+            "readSecure" -> {
+                val key = call.argument<String>("key")
+                if (key != null) {
+                    result.success(secureStorageHandler?.read(key))
+                } else {
+                    result.error("INVALID_ARGS", "key required", null)
+                }
+            }
+            "deleteSecure" -> {
+                val key = call.argument<String>("key")
+                if (key != null) {
+                    result.success(secureStorageHandler?.delete(key) ?: false)
+                } else {
+                    result.error("INVALID_ARGS", "key required", null)
+                }
+            }
+            "containsKeySecure" -> {
+                val key = call.argument<String>("key")
+                if (key != null) {
+                    result.success(secureStorageHandler?.containsKey(key) ?: false)
+                } else {
+                    result.success(false)
+                }
+            }
+            "wipeAllSecure" -> {
+                result.success(secureStorageHandler?.wipeAll() ?: false)
+            }
+
+            // Device Binding Shield
+            "getDeviceFingerprint" -> {
+                val context = applicationContext
+                if (context != null) {
+                    result.success(com.neelakandan.flutter_neo_shield.rasp.DeviceBindingDetector().getDeviceFingerprint(context))
+                } else {
+                    result.success(null)
+                }
+            }
+
             else -> {
                 result.notImplemented()
             }
@@ -289,5 +457,9 @@ class FlutterNeoShieldPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         locationChannel.setMethodCallHandler(null)
         locationHandler = null
         screenEventChannel?.setStreamHandler(null)
+        secureStorageChannel?.setMethodCallHandler(null)
+        biometricChannel?.setMethodCallHandler(null)
+        deviceBindingChannel?.setMethodCallHandler(null)
+        secureStorageHandler = null
     }
 }
